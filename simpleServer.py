@@ -1,5 +1,5 @@
 from http.server import HTTPServer, BaseHTTPRequestHandler
-import ssl
+import ssl, requests
 
 class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
