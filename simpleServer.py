@@ -1,19 +1,21 @@
 from http.server import HTTPServer, BaseHTTPRequestHandler
-import ssl
+from flask import Flask
+import ssl, requests
+from OpenSSL import SSL
 
-class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
+context = SSL.Context(SSL.PROTOCOL_TLSv1_2)
+context.use_privatekey_file('server.key')
+context.use_certificate_file('server.crt')
 
-    def do_GET(self):
-        self.send_response(200)
-        self.end_headers()
-        self.wfile.write(b'Hello, world!')
+app = Flask(__name__)
+
+@app.route('/')
+def hello_world():
+    return 'Hello World'
 
 
 
-httpd = HTTPServer(('localhost', 8000), BaseHTTPRequestHandler)
 
-httpd.socket = ssl.wrap_socket (httpd.socket, 
-        keyfile="./key.pem", 
-        certfile='./certificate.pem', server_side=True)
 
-httpd.serve_forever()
+if __name__ == '__main__':
+    app.run(ssl_context=context)
