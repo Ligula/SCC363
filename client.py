@@ -9,6 +9,7 @@ password = input('Password: ')
 
 
 data = {
+  "id": "empty",
   "username": login,
   "password": password
 }
