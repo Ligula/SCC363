@@ -6,6 +6,8 @@ context = ('certificate.pem', 'key.pem')
 
 app = Flask(__name__)
 
+users = dict()
+
 @app.route('/')
 def hello_world():
     return 'Hello World'
@@ -13,19 +15,29 @@ def hello_world():
 
 @app.route('/api/v1/login', methods=['POST'])
 def login_handler():
-    # Check password is correct
-    # Provide the user with a one time code via email.
-    # Send user to code entry form.
+    data = request.get_json()
+    uname = data["username"]
+    pwd = data["password"]
+    hashpwd = hash(pwd)
+    if uname in users:
+        # Check password is valid
+        # Hash password on the server
+        # If the password is correct, send one-time code and store one-time code for testing
+        return {'message': 'You have logged in'}, status.HTTP_200_OK
+    else:
+        return {'message' : "User doesn't exists"}, status.HTTP_404_NOT_FOUND
     return "Login handler"
 
 @app.route('/api/v1/otc', method=['POST'])
 def otc_handler():
+    data = request.get_json()
     # One time code handler
     # Check OTC matches the stored OTC
     return "One time code"
 
 @app.route('/api/v1/register', methods=['POST'])
 def register_handler():
+    data = request.get_json()
     return "Register handler"
 
 # This account doesn't actually exist yet.
