@@ -1,5 +1,5 @@
 from http.server import HTTPServer, BaseHTTPRequestHandler
-from flask import Flask, request, Response
+from flask import Flask, request, Response, jsonify
 from base64 import b64encode
 import ssl, os, hashlib, sys, smtplib, random
 from passlib.hash import argon2
@@ -56,15 +56,21 @@ def login_handler():
     else:
         if verify_password(pwd, users[uname]["hash"]):
             # TODO: Need some session data to send back to the user.
+            # TODO: Associate visitor IP address with session / OTC
+            # If IP address is different, invalidate session / OTC. (request.remote_addr)
             code = random.randrange(1, 10**4)
             code_str = '{:04}'.format(code)
             # Code from 0000-9999, send to user's email.
             users[uname]["otc"] = code_str
             SendEmail(users[uname]["email"], 'SCC-363 OTC', 'Login OTC: ' + code_str)
-            return Response("{'message': 'Password Correct'}", status=200)
+            
+            response = {}
+            response["message"] = "Password correct!"
+            response["session"] = {}
+            response["session"]["uid"] = uname
+            return jsonify(response), 200
             
     return Response("{'message': 'Password Incorrect'}", status=400)
-
 
 @app.route('/api/v1/otc', methods=['POST'])
 def otc_handler():
