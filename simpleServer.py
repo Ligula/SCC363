@@ -1,13 +1,18 @@
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from flask import Flask, request, Response
-import ssl
+from base64 import b64encode
+import ssl, os, hashlib
 
 context = ('certificate.pem', 'key.pem')
 
 app = Flask(__name__)
 
 users = {
-    "testUser": "testPassword"
+    "testUser": {
+        "email": "example@noneofyourbusiness.com",
+        "password": "testPassword",
+        "salt": "salt"
+    }
 }
 
 @app.route('/')
@@ -17,6 +22,11 @@ def hello_world():
 @app.route('/alive')
 def alive():
     return 'Alive'
+
+@app.route('/test')
+def test():
+    print(users)
+    return 'Done'
 
 
 @app.route('/api/v1/login', methods=['POST'])
@@ -48,7 +58,30 @@ def register_handler():
     uname = data["username"]
     pwd = data["password"]
 
+    saltandhash = createHash(pwd)
+
+    if uname in users:
+        return Response("{'message':'username taken'}")
+    else:
+        newEntry = {
+            "uname": {
+                "email": email,
+                "password": saltandhash[1],
+                "salt": saltandhash[0]
+            }
+        }
+        users.update(newEntry)
+
     return "Register handler"
+
+
+def createHash(password):
+    random = os.urandom(32)
+    salt = b64encode(random).decode('utf-8')
+    saltedpwd = password + salt
+    hashword = hashlib.sha3_256(saltedpwd.encode('utf-8')).hexdigest()
+    return [salt, hashword]
+    
 
 # This account doesn't actually exist yet.
 email_user = "scc363-verify@gmail.com"
