@@ -7,6 +7,7 @@ context = ('certificate.pem', 'key.pem')
 
 app = Flask(__name__)
 
+
 users = {
     "testUser": {
         "email": "example@noneofyourbusiness.com",
@@ -15,13 +16,16 @@ users = {
     }
 }
 
+
 @app.route('/')
 def hello_world():
     return 'Hello World'
 
+
 @app.route('/alive')
 def alive():
     return 'Alive'
+
 
 @app.route('/test')
 def test():
@@ -34,15 +38,16 @@ def login_handler():
     data = request.get_json()
     uname = data["username"]
     pwd = data["password"]
-    hashpwd = hash(pwd)
-    if uname in users:
-        # Check password is valid
-        # Hash password on the server
-        # If the password is correct, send one-time code and store one-time code for testing
-        return Response("{'message': 'You have logged in'}", status=200)
-    else:
+    if uname not in users:
         return Response("{'message' : 'User doesn't exists'}", status=404)
-    return "Login handler"
+    else:
+        salt = users[uname]["salt"]
+        pwdattempt = pwd + salt
+        hashattempt = hashlib.sha3_256(pwdattempt.encode('utf-8')).hexdigest()
+        if users[uname]["password"] == hashattempt:
+            return Response("{'message': 'Password Correct'}", status=200)
+    return Response("{'message': 'Password Incorrect'}", status=400)
+
 
 @app.route('/api/v1/otc', methods=['POST'])
 def otc_handler():
@@ -50,6 +55,7 @@ def otc_handler():
     # One time code handler
     # Check OTC matches the stored OTC
     return "One time code"
+
 
 @app.route('/api/v1/register', methods=['POST'])
 def register_handler():
@@ -64,7 +70,7 @@ def register_handler():
         return Response("{'message':'username taken'}")
     else:
         newEntry = {
-            "uname": {
+            uname: {
                 "email": email,
                 "password": saltandhash[1],
                 "salt": saltandhash[0]
@@ -81,11 +87,15 @@ def createHash(password):
     saltedpwd = password + salt
     hashword = hashlib.sha3_256(saltedpwd.encode('utf-8')).hexdigest()
     return [salt, hashword]
+
+#def checkHash(username, password):
+
     
 
 # This account doesn't actually exist yet.
 email_user = "scc363-verify@gmail.com"
 email_password = "some_magic_password"
+
 
 def SendEmail(email, subject, body):
     """Sends an email using gmail to an email address
@@ -110,6 +120,7 @@ def SendEmail(email, subject, body):
     except:
         print('Something went wrong...')
         return False
+
 
 if __name__ == '__main__':
     app.run(ssl_context=context)
