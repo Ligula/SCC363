@@ -2,21 +2,30 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 from flask import Flask, request, Response
 from base64 import b64encode
 import ssl, os, hashlib
+from passlib.hash import argon2
 
 context = ('certificate.pem', 'key.pem')
 
 app = Flask(__name__)
 
-def hasher(value):
-    return hashlib.sha3_256(value).hexdigest()
+def create_password(password):
+    # requires passlib & argon2_cffi / argon2pure
+    # Passlib uses argon2i
+    # More than 2 rounds is recommended, too many takes a long time...
+    # https://github.com/P-H-C/phc-winner-argon2/blob/master/argon2-specs.pdf
+    return argon2.using(rounds=5).hash(password)
+
+def verify_password(password, hash):
+    return argon2.verify(password, hash)
 
 users = {
     #just for reference
     "testUser": {
         "email": "example@noneofyourbusiness.com",
-        # Store the password in hashed form.
-        "password": hasher("testPasswordsalt".encode('utf-8')),
-        "salt": "salt"
+        # argon2 uses a storage format that has both password and salt together
+        # in a specific format.
+        # e.g '$argon2i$v=19$m=512,t=4,p=2$eM+ZMyYkpDRGaI3xXmuNcQ$c5DeJg3eb5dskVt1mDdxfw'
+        "hash": create_password("testPassword"),
     }
 }
 
@@ -44,12 +53,13 @@ def login_handler():
     if uname not in users:
         return Response("{'message' : 'User doesn't exists'}", status=404)
     else:
-        salt = users[uname]["salt"]
-        pwdattempt = pwd + salt
-        hashattempt = hasher(pwdattempt.encode('utf-8'))
-        print(pwdattempt, hashattempt, users[uname]["password"])
-        if users[uname]["password"] == hashattempt:
+        if verify_password(pwd, users[uname]["hash"]):
+            
+            # Create one time code, add to user
+            # Send email with the code in and ask the user to check their email.
+            
             return Response("{'message': 'Password Correct'}", status=200)
+            
     return Response("{'message': 'Password Incorrect'}", status=400)
 
 
@@ -68,7 +78,7 @@ def register_handler():
     uname = data["username"]
     pwd = data["password"]
 
-    saltandhash = createHash(pwd)
+    saltandhash = create_password(pwd)
 
     if uname in users:
         return Response("{'message':'username taken'}", status=400)
@@ -76,8 +86,7 @@ def register_handler():
         newEntry = {
             uname: {
                 "email": email,
-                "password": saltandhash[1],
-                "salt": saltandhash[0]
+                "hash" : saltandhash
             }
         }
         users.update(newEntry)
@@ -85,12 +94,12 @@ def register_handler():
     return Response("{'message':'User successfully registered'}", status=200)
 
 
-def createHash(password):
-    random = os.urandom(32)
-    salt = b64encode(random).decode('utf-8')
-    saltedpwd = password + salt
-    hashword = hasher(saltedpwd.encode('utf-8'))
-    return [salt, hashword]
+#def createHash(password):
+#    random = os.urandom(32)
+#    salt = b64encode(random).decode('utf-8')
+#    saltedpwd = password + salt
+#    hashword = hasher(saltedpwd.encode('utf-8'))
+#    return [salt, hashword]
 
 
 # This account doesn't actually exist yet.
