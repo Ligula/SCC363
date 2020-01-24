@@ -9,6 +9,7 @@ app = Flask(__name__)
 
 
 users = {
+    #just for reference
     "testUser": {
         "email": "example@noneofyourbusiness.com",
         "password": "testPassword",
@@ -67,7 +68,7 @@ def register_handler():
     saltandhash = createHash(pwd)
 
     if uname in users:
-        return Response("{'message':'username taken'}")
+        return Response("{'message':'username taken'}", status=400)
     else:
         newEntry = {
             uname: {
@@ -78,7 +79,7 @@ def register_handler():
         }
         users.update(newEntry)
 
-    return "Register handler"
+    return Response("{'message':'User successfully registered'}", status=200)
 
 
 def createHash(password):
@@ -87,8 +88,6 @@ def createHash(password):
     saltedpwd = password + salt
     hashword = hashlib.sha3_256(saltedpwd.encode('utf-8')).hexdigest()
     return [salt, hashword]
-
-#def checkHash(username, password):
 
     
 
