@@ -13,7 +13,7 @@ fullAddress = serverAddress + ':' + serverPort
 def isServerAlive():
   r = requests.get(fullAddress + '/alive', verify=False)
   if r.text == "Alive":
-    print("aha! I was right")
+    print("Server Online")
   return True
 
 
@@ -54,9 +54,9 @@ def register():
 
 if isServerAlive() == True:
   print("Yahoo!")
-  #login()
+  login()
   #register()
-  requests.get(fullAddress + '/test', verify=False)
+  #requests.get(fullAddress + '/test', verify=False)
 else:
   print("Fuck")
 
