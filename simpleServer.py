@@ -62,6 +62,7 @@ def login_handler():
             code_str = '{:04}'.format(code)
             # Code from 0000-9999, send to user's email.
             users[uname]["otc"] = code_str
+            users[uname]["otc_ip"] = request.remote_addr
             SendEmail(users[uname]["email"], 'SCC-363 OTC', 'Login OTC: ' + code_str)
             
             response = {}
@@ -74,14 +75,45 @@ def login_handler():
 
 @app.route('/api/v1/otc', methods=['POST'])
 def otc_handler():
+    # One time code handler
     data = request.get_json()
+    """
+        Expected JSON data format:
+        {
+            'otc' : '0123',
+            'session': {'uid' : 'testUser'}
+        }
+    """
     code = data["otc"]
     session = data["session"]
-    # One time code handler
-    # Check OTC matches the stored OTC
-    # If matches, allow user through and make OTC void.
-    return "One time code"
+    user = session["uid"]
+    # Does the user exist?
+    if user in users:
+        userData = users[user]
+        # Check OTC exists and is valid.
+        if len(userData["otc"]) != 4:
+            return Response("{'message': 'No OTC for user'}", status=400)
+        # Check ip matches ip that started the login request.
+        if userData["otc_ip"] != request.remote_addr:
+            # Blank fields to invalidate otc.
+            users[user]["otc"] = ""
+            users[user]["otc_ip"] = ""
+            return Response("{'message': 'IP changed, session invalidated'}", status=400)
+        
+        if userData["otc"] == code:
+            # TODO: Need to do some other stuff in here too for authenticating user.
+            # Modify session? Update field in database?
 
+            # Since the user has entered the correct code, 
+            # discard the one time code so it cannot be reused.
+            users[user]["otc"] = ""
+            users[user]["otc_ip"] = ""
+            return Response("{'message': 'OTC correct!'}", status=200)
+        else:
+            return Response("{'message': 'OTC incorrect!'}", status=200)
+    else:
+        return Response("{'message': 'Invalid session'}", status=400)
+    return Response("{'message': 'Shouldn't get to here. Internal failure.'}", status=500)
 
 @app.route('/api/v1/register', methods=['POST'])
 def register_handler():
