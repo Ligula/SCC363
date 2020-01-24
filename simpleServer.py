@@ -7,16 +7,18 @@ context = ('certificate.pem', 'key.pem')
 
 app = Flask(__name__)
 
+def hasher(value):
+    return hashlib.sha3_256(value).hexdigest()
 
 users = {
     #just for reference
     "testUser": {
         "email": "example@noneofyourbusiness.com",
-        "password": "testPassword",
+        # Store the password in hashed form.
+        "password": hasher("testPasswordsalt".encode('utf-8')),
         "salt": "salt"
     }
 }
-
 
 @app.route('/')
 def hello_world():
@@ -44,7 +46,8 @@ def login_handler():
     else:
         salt = users[uname]["salt"]
         pwdattempt = pwd + salt
-        hashattempt = hashlib.sha3_256(pwdattempt.encode('utf-8')).hexdigest()
+        hashattempt = hasher(pwdattempt.encode('utf-8'))
+        print(pwdattempt, hashattempt, users[uname]["password"])
         if users[uname]["password"] == hashattempt:
             return Response("{'message': 'Password Correct'}", status=200)
     return Response("{'message': 'Password Incorrect'}", status=400)
@@ -86,10 +89,9 @@ def createHash(password):
     random = os.urandom(32)
     salt = b64encode(random).decode('utf-8')
     saltedpwd = password + salt
-    hashword = hashlib.sha3_256(saltedpwd.encode('utf-8')).hexdigest()
+    hashword = hasher(saltedpwd.encode('utf-8'))
     return [salt, hashword]
 
-    
 
 # This account doesn't actually exist yet.
 email_user = "scc363-verify@gmail.com"

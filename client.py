@@ -31,6 +31,7 @@ def login():
   r = requests.post(fullAddress + '/api/v1/login', data=jsonData, headers=headers, verify=False)
   if(r.status_code == 200):
     print("Logged iiiiin biiiiitcheeeees")
+  print(r.content)
 
 
 def register():
