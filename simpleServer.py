@@ -9,18 +9,13 @@ app = Flask(__name__)
 
 
 users = {
-    #just for reference
+    #just for reference, no longer works as password isn't hashed.
     "testUser": {
         "email": "example@noneofyourbusiness.com",
         "password": "testPassword",
         "salt": "salt"
     }
 }
-
-
-@app.route('/')
-def hello_world():
-    return 'Hello World'
 
 
 @app.route('/alive')
