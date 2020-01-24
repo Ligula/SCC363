@@ -1,8 +1,9 @@
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from flask import Flask, request, Response
 from base64 import b64encode
-import ssl, os, hashlib
+import ssl, os, hashlib, sys, smtplib, random
 from passlib.hash import argon2
+from email.message import EmailMessage
 
 context = ('certificate.pem', 'key.pem')
 
@@ -21,7 +22,7 @@ def verify_password(password, hash):
 users = {
     #just for reference
     "testUser": {
-        "email": "example@noneofyourbusiness.com",
+        "email": "j.p.fletcher@lancaster.ac.uk",
         # argon2 uses a storage format that has both password and salt together
         # in a specific format.
         # e.g '$argon2i$v=19$m=512,t=4,p=2$eM+ZMyYkpDRGaI3xXmuNcQ$c5DeJg3eb5dskVt1mDdxfw'
@@ -54,10 +55,12 @@ def login_handler():
         return Response("{'message' : 'User doesn't exists'}", status=404)
     else:
         if verify_password(pwd, users[uname]["hash"]):
-            
-            # Create one time code, add to user
-            # Send email with the code in and ask the user to check their email.
-            
+            # TODO: Need some session data to send back to the user.
+            code = random.randrange(1, 10**4)
+            code_str = '{:04}'.format(code)
+            # Code from 0000-9999, send to user's email.
+            users[uname]["otc"] = code_str
+            SendEmail(users[uname]["email"], 'SCC-363 OTC', 'Login OTC: ' + code_str)
             return Response("{'message': 'Password Correct'}", status=200)
             
     return Response("{'message': 'Password Incorrect'}", status=400)
@@ -66,8 +69,11 @@ def login_handler():
 @app.route('/api/v1/otc', methods=['POST'])
 def otc_handler():
     data = request.get_json()
+    code = data["otc"]
+    session = data["session"]
     # One time code handler
     # Check OTC matches the stored OTC
+    # If matches, allow user through and make OTC void.
     return "One time code"
 
 
@@ -89,6 +95,8 @@ def register_handler():
                 "hash" : saltandhash
             }
         }
+        # TODO: verify email.
+        SendEmail(email, 'SCC-363 Registration', 'Welcome to the system! \n Please verify your email at: ...')
         users.update(newEntry)
 
     return Response("{'message':'User successfully registered'}", status=200)
@@ -103,7 +111,7 @@ def register_handler():
 
 
 # This account doesn't actually exist yet.
-email_user = "scc363-verify@gmail.com"
+email_user = "scc363.verify@gmail.com"
 email_password = "some_magic_password"
 
 
@@ -113,22 +121,21 @@ def SendEmail(email, subject, body):
     Returns true or false if sending succeeded or failed. 
     """
     try:
-        to = [email]
-        email_text = """\
-        From: %s
-        To: %s
-        Subject: %s
-
-        %s
-        """ % (email_us, ", ".join(to), subject, body)
+        msg = EmailMessage()
+        msg['Subject'] = subject
+        msg['From'] = email_user
+        msg['To'] = email
+        msg.set_content(body)
         server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
         server.ehlo()
         server.login(email_user, email_password)
-        server.sendmail(email_user, to, email_text)
+        server.send_message(msg)
+        server.quit()
         server.close()
         return True
     except:
-        print('Something went wrong...')
+        e = sys.exc_info()[0]
+        print('Something went wrong...', e)
         return False
 
 
