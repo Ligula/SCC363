@@ -1,7 +1,9 @@
 import requests, json, hashlib, sys, os
 
-#Steps:
-#
+#Problems:
+  # All requests need to have verify=False until certificate verification is added
+
+
 serverAddress = 'https://127.0.0.1'
 serverPort = '5000'
 fullAddress = serverAddress + ':' + serverPort
@@ -38,22 +40,27 @@ def register():
 
   data = {
     "email": email,
-    "username": login,
+    "username": username,
     "password": password
   }
   jsonData = json.dumps(data)
   headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
 
   r = requests.post(fullAddress + '/api/v1/register', data=jsonData, headers=headers, verify=False)
+  print(r.status_code)
 
 
 
 
 if isServerAlive() == True:
   print("Yahoo!")
-  login()
+  #login()
+  #register()
+  requests.get(fullAddress + '/test', verify=False)
 else:
   print("Fuck")
+
+
   '''
   salt = os.urandom(32)
 
