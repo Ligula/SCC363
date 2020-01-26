@@ -1,7 +1,7 @@
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from flask import Flask, request, Response, jsonify
 from base64 import b64encode
-import ssl, os, hashlib, sys, smtplib, random
+import ssl, os, hashlib, sys, smtplib, random, uuid
 from passlib.hash import argon2
 from email.message import EmailMessage
 
@@ -19,6 +19,9 @@ def create_password(password):
 def verify_password(password, hash):
     return argon2.verify(password, hash)
 
+def generate_random_id():
+    return uuid.uuid1().hex
+
 users = {
     #just for reference
     "testUser": {
@@ -27,6 +30,9 @@ users = {
         # in a specific format.
         # e.g '$argon2i$v=19$m=512,t=4,p=2$eM+ZMyYkpDRGaI3xXmuNcQ$c5DeJg3eb5dskVt1mDdxfw'
         "hash": create_password("testPassword"),
+        # Used for verifying email.
+        "verified": True,
+        "verify_id": generate_random_id()
     }
 }
 
@@ -55,9 +61,15 @@ def login_handler():
         return Response("{'message' : 'User doesn't exists'}", status=404)
     else:
         if verify_password(pwd, users[uname]["hash"]):
+            # Don't allow user to login until their email is verified.
+            if users[uname]["verified"] == False:
+                response = {}
+                response["message"] = "Account not verified!"
+                return jsonify(response), 400
+
             # TODO: Need some session data to send back to the user.
-            # TODO: Associate visitor IP address with session / OTC
-            # If IP address is different, invalidate session / OTC. (request.remote_addr)
+            # TODO: Associate visitor IP address with session
+            # If IP address is different, invalidate session. (request.remote_addr)
             code = random.randrange(1, 10**4)
             code_str = '{:04}'.format(code)
             # Code from 0000-9999, send to user's email.
@@ -102,6 +114,7 @@ def otc_handler():
         
         if userData["otc"] == code:
             # TODO: Need to do some other stuff in here too for authenticating user.
+            # Allow them into the system since the code is correct.
             # Modify session? Update field in database?
 
             # Since the user has entered the correct code, 
@@ -114,6 +127,17 @@ def otc_handler():
     else:
         return Response("{'message': 'Invalid session'}", status=400)
     return Response("{'message': 'Shouldn't get to here. Internal failure.'}", status=500)
+
+@app.route('/api/v1/verify', methods=['GET'])
+def verify_handler():
+    vid = request.args.get('verifyId')
+    for user in users:
+        # If the id matches, then verify the user.
+        if users[user]["verify_id"] == vid:
+            users[user]["verified"] = True
+            return Response("{'message': 'Your account has been verified, you can now login.'}")
+
+    return Response("{'message': 'Unknown verify id.'}"), 404
 
 @app.route('/api/v1/register', methods=['POST'])
 def register_handler():
@@ -130,14 +154,17 @@ def register_handler():
         newEntry = {
             uname: {
                 "email": email,
-                "hash" : saltandhash
+                "hash" : saltandhash,
+                "verified": False,
+                "verify_id": generate_random_id()
             }
         }
-        # TODO: verify email.
-        SendEmail(email, 'SCC-363 Registration', 'Welcome to the system! \n Please verify your email at: ...')
+        # Send link to verify account.
+        verify_url = "https://localhost:5000/api/v1/verify?verifyId=" + newEntry[uname]["verify_id"]
+        SendEmail(email, 'SCC-363 Registration', ('Hi %s, welcome to the system! \n Please verify your email at: %s' % (uname, verify_url)))
         users.update(newEntry)
 
-    return Response("{'message':'User successfully registered'}", status=200)
+    return Response("{'message':'User successfully registered, goto your emails to verify your account.'}", status=200)
 
 
 #def createHash(password):
