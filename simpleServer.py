@@ -1,5 +1,5 @@
 from http.server import HTTPServer, BaseHTTPRequestHandler
-from flask import Flask, request, Response, jsonify
+from flask import Flask, request, Response, jsonify, url_for
 from base64 import b64encode
 import ssl, os, hashlib, sys, smtplib, random, uuid
 from passlib.hash import argon2
@@ -8,6 +8,7 @@ from email.message import EmailMessage
 context = ('certificate.pem', 'key.pem')
 
 app = Flask(__name__)
+app.secret_key = 'some_secret_key_that_needs_to_be_really_long'
 
 def create_password(password):
     # requires passlib & argon2_cffi / argon2pure
@@ -30,8 +31,8 @@ users = {
         # in a specific format.
         # e.g '$argon2i$v=19$m=512,t=4,p=2$eM+ZMyYkpDRGaI3xXmuNcQ$c5DeJg3eb5dskVt1mDdxfw'
         "hash": create_password("testPassword"),
-        # Used for verifying email.
         "verified": True,
+        # Used for verification link.
         "verify_id": generate_random_id()
     }
 }
@@ -160,7 +161,7 @@ def register_handler():
             }
         }
         # Send link to verify account.
-        verify_url = "https://localhost:5000/api/v1/verify?verifyId=" + newEntry[uname]["verify_id"]
+        verify_url = "https://localhost:5000" + url_for('verify_handler')+"?verifyId=" + newEntry[uname]["verify_id"]
         SendEmail(email, 'SCC-363 Registration', ('Hi %s, welcome to the system! \n Please verify your email at: %s' % (uname, verify_url)))
         users.update(newEntry)
 
