@@ -96,6 +96,7 @@ def read_user(uid):
     """
         Reads a users information based on their user id.
         Patient can read only their own data.
+        Patient can look at some of the doctors details. (name)
         Doctor can only read their own patients data. Maybe blank out address since it isn't needed?
         Regulator can read all
     """
@@ -111,6 +112,16 @@ def update_user(uid):
         Regulator cannot? modify anything
     """
     return "some data"
+
+@app.route('/api/v1/user/{uid}', methods=["DELETE"])
+@login_required
+def delete_user(uid):
+    """
+        Deletes a user from the database.
+        Patients can only delete themselves.
+        Doctors can't delete patients.
+        Regulator cannot delete anyone.
+    """
 
 @app.route('/api/v1/logout', methods=["GET"])
 @login_required
