@@ -122,6 +122,15 @@ def delete_user(uid):
         Doctors can't delete patients.
         Regulator cannot delete anyone.
     """
+    return "some_data"
+
+@app.route('/api/v1/audit', methods=["GET"])
+@login_required
+def get_audits():
+    """
+        Only regulator has access to this.
+    """
+    return "some_data"
 
 @app.route('/api/v1/logout', methods=["GET"])
 @login_required
