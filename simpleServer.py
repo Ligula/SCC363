@@ -1,5 +1,5 @@
 from http.server import HTTPServer, BaseHTTPRequestHandler
-from flask import Flask, request, Response, jsonify, url_for
+from flask import Flask, request, Response, jsonify, url_for, redirect
 from base64 import b64encode
 import ssl, os, hashlib, sys, smtplib, random, uuid
 from passlib.hash import argon2
@@ -60,7 +60,7 @@ def login_required(f):
                 return f(*args, **kwargs)
             else:
                 # Ask the user to login.
-                return redirect(url_for('login_handler', next=request.url))
+                return jsonify({"message": "You need to login to access this resource"}), 401
         else:
             return jsonify({"message": "Invalid request"}), 400
     return decorated_function
