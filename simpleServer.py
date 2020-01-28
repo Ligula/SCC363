@@ -57,7 +57,11 @@ def login_required(f):
         if "session" in data:
             user = data["session"]["uid"]
             if user in sessions:
-                return f(*args, **kwargs)
+                if sessions[user]["ip"] == request.remote_addr:
+                    return f(*args, **kwargs)
+                else:
+                    del sessions[user]
+                    return jsonify({"message": "IP Changed, re-login is required."}), 401
             else:
                 # Ask the user to login.
                 return jsonify({"message": "You need to login to access this resource"}), 401
@@ -133,8 +137,6 @@ def login_handler():
                 if(session["ip"]==request.remote_addr):
                     return jsonify(response), 200 #session already verified
             # TODO: Need some session data to send back to the user.
-            # TODO: Associate visitor IP address with session
-            # If IP address is different, invalidate session. (request.remote_addr)
             code = random.randrange(1, 10**4)
             code_str = '{:04}'.format(code)
             # Code from 0000-9999, send to user's email.
