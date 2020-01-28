@@ -4,6 +4,7 @@ from base64 import b64encode
 import ssl, os, hashlib, sys, smtplib, random, uuid
 from passlib.hash import argon2
 from email.message import EmailMessage
+import time
 
 context = ('certificate.pem', 'key.pem')
 
@@ -37,6 +38,10 @@ users = {
     }
 }
 
+#list of open sessions
+sessions = {
+}
+
 @app.route('/')
 def hello_world():
     return 'Hello World'
@@ -67,7 +72,11 @@ def login_handler():
                 response = {}
                 response["message"] = "Account not verified!"
                 return jsonify(response), 400
-
+			
+			if uname in sessions:
+				session=sessions[uname]
+				if(session["ip"]==request.remote_addr):
+					return jsonify(response), 200 #session already verified
             # TODO: Need some session data to send back to the user.
             # TODO: Associate visitor IP address with session
             # If IP address is different, invalidate session. (request.remote_addr)
@@ -117,6 +126,17 @@ def otc_handler():
             # TODO: Need to do some other stuff in here too for authenticating user.
             # Allow them into the system since the code is correct.
             # Modify session? Update field in database?
+			
+			#add session (will be changed to DB)
+			uid = session["uid"]
+			sessions[uid] = {}
+			sessions[uid]["user"]= userData[user]
+			
+			#set session ip address to currunt ip (one session per ip)
+			sessions[uid]["ip"]= userData["otc_ip"]
+			
+			#remember time so session can time-out
+			sessions[uid]["validated_date"] = time.time()
 
             # Since the user has entered the correct code, 
             # discard the one time code so it cannot be reused.
