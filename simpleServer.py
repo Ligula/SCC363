@@ -4,6 +4,7 @@ from base64 import b64encode
 import ssl, os, hashlib, sys, smtplib, random, uuid
 from passlib.hash import argon2
 from email.message import EmailMessage
+from functools import wraps
 import time
 
 context = ('certificate.pem', 'key.pem')
@@ -42,7 +43,30 @@ users = {
 sessions = {
 }
 
+def login_required(f):
+    """
+        Flask decorator for endpoints that require the user to be logged in before
+        being able to access the resource.
+    """
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        data = request.get_json()
+        if data == None:
+            return jsonify({"message": "Invalid request"}), 400
+        # Check session exists on both client and server.
+        if "session" in data:
+            user = data["session"]["uid"]
+            if user in sessions:
+                return f(*args, **kwargs)
+            else:
+                # Ask the user to login.
+                return redirect(url_for('login_handler', next=request.url))
+        else:
+            return jsonify({"message": "Invalid request"}), 400
+    return decorated_function
+
 @app.route('/')
+@login_required
 def hello_world():
     return 'Hello World'
 
@@ -73,10 +97,10 @@ def login_handler():
                 response["message"] = "Account not verified!"
                 return jsonify(response), 400
 			
-			if uname in sessions:
-				session=sessions[uname]
-				if(session["ip"]==request.remote_addr):
-					return jsonify(response), 200 #session already verified
+            if uname in sessions:
+                session=sessions[uname]
+                if(session["ip"]==request.remote_addr):
+                    return jsonify(response), 200 #session already verified
             # TODO: Need some session data to send back to the user.
             # TODO: Associate visitor IP address with session
             # If IP address is different, invalidate session. (request.remote_addr)
@@ -128,15 +152,15 @@ def otc_handler():
             # Modify session? Update field in database?
 			
 			#add session (will be changed to DB)
-			uid = session["uid"]
-			sessions[uid] = {}
-			sessions[uid]["user"]= userData[user]
-			
+            uid = session["uid"]
+            sessions[uid] = {}
+            sessions[uid]["user"]= userData[user]
+
 			#set session ip address to currunt ip (one session per ip)
-			sessions[uid]["ip"]= userData["otc_ip"]
+            sessions[uid]["ip"]= userData["otc_ip"]
 			
 			#remember time so session can time-out
-			sessions[uid]["validated_date"] = time.time()
+            sessions[uid]["validated_date"] = time.time()
 
             # Since the user has entered the correct code, 
             # discard the one time code so it cannot be reused.
