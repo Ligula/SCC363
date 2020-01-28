@@ -81,6 +81,37 @@ def test():
     print(users)
     return 'Done'
 
+@app.route('/api/v1/user/{uid}')
+@login_required
+def read_user(uid):
+    """
+        Reads a users information based on their user id.
+        Patient can read only their own data.
+        Doctor can only read their own patients data. Maybe blank out address since it isn't needed?
+        Regulator can read all
+    """
+    return "some data"
+
+@app.route('/api/v1/user/{uid}', methods=["UPDATE"])
+@login_required
+def update_user(uid):
+    """
+        Modifies a users details.
+        Patient will only be able to modify their own user details.
+        Doctors will only be able to modify the patients that are assigned to them
+        Regulator cannot? modify anything
+    """
+    return "some data"
+
+@app.route('/api/v1/logout', methods=["GET"])
+@login_required
+def logout_handler():
+    data = request.get_json()
+    if data["session"]["uid"] in sessions:
+        del sessions[data["session"]["uid"]]
+        return jsonify({"message": "You've been logged out"}), 200
+    else:
+        return jsonify({"message": "No session to logout of."}), 200
 
 @app.route('/api/v1/login', methods=['POST'])
 def login_handler():
