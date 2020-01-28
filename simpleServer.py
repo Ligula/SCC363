@@ -9,6 +9,9 @@ import time
 
 context = ('certificate.pem', 'key.pem')
 
+# Maximum duration of a session
+SESSION_TIME = 60 * 60 * 4
+
 app = Flask(__name__)
 app.secret_key = 'some_secret_key_that_needs_to_be_really_long'
 
@@ -57,11 +60,13 @@ def login_required(f):
         if "session" in data:
             user = data["session"]["uid"]
             if user in sessions:
-                if sessions[user]["ip"] == request.remote_addr:
-                    return f(*args, **kwargs)
-                else:
+                if sessions[user]["validated_date"] + SESSION_TIME < time.time():
+                    del sessions[user]
+                    return jsonify({"message" : "Session expired, log back in."})
+                if sessions[user]["ip"] != request.remote_addr:
                     del sessions[user]
                     return jsonify({"message": "IP Changed, re-login is required."}), 401
+                return f(*args, **kwargs)
             else:
                 # Ask the user to login.
                 return jsonify({"message": "You need to login to access this resource"}), 401
