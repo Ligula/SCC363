@@ -41,10 +41,11 @@ def pass_eval(passw, user, dob):
         raise Exception("Password must contain one uppercase character!")
     elif spec < 1:
         raise Exception("Password must contain 1 special character!")
-    
+
+#user = input("\nEnter User: ")    
 passw = input("\nEnter password: ")
-user = input("\nEnter User")
-dob = input("\nEnter DOB e.g. DD/MM/YYYY: ")
+#dob = input("\nEnter DOB e.g. DD/MM/YYYY: ")
+
 while pass_eval(passw, user, dob) != True:
     passw = input("\nEnter password: ")
 
