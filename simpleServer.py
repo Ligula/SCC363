@@ -1,11 +1,47 @@
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from flask import Flask, request, Response, jsonify, url_for, redirect
 from base64 import b64encode
-import ssl, os, hashlib, sys, smtplib, random, uuid
+import ssl, os, hashlib, sys, smtplib, random, uuid, sqlite3
 from passlib.hash import argon2
 from email.message import EmailMessage
 from functools import wraps
 import time
+
+conn = sqlite3.connect(':memory:')
+db = conn.cursor()
+
+db.execute("""CREATE TABLE account (Username VARCHAR(255) PRIMARY KEY NOT NULL,
+Password VARCHAR(128) NOT NULL,
+Email VARCHAR(255) NOT NULL,
+Role VARCHAR(255),
+PWExpiryDate DATE,
+VerifyID INT,
+Verified BOOLEAN,
+AuthCode VARCHAR(6));""")
+db.execute("""CREATE TABLE staff (Position VARCHAR(255),
+DateOfBirth DATE,
+FileLocation VARCHAR(255),
+StaffUsername VARCHAR(255),
+FOREIGN KEY(StaffUsername) REFERENCES account(username));""")
+'''db.execute("""CREATE TABLE regulator (Username VARCHAR (255), FOREIGN KEY REFERENCES
+(account.username));""")'''
+db.execute("""CREATE TABLE session (SessionID INT,
+IPAddress VARCHAR(255),
+Username VARCHAR(255),
+StartDate DATE,
+FOREIGN KEY (Username) REFERENCES account(username));""")
+db.execute("""CREATE TABLE patient (Address VARCHAR(255),
+DateOfBirth CHAR(8),
+Conditions VARCHAR(255),
+PatientUsername VARCHAR(255),
+StaffUsername VARCHAR(255), 
+FOREIGN KEY (PatientUsername) REFERENCES account(username),
+FOREIGN KEY (StaffUsername) REFERENCES staff(StaffUsername));""")
+
+db.execute("SELECT name FROM sqlite_master WHERE type='table';")
+print(db.fetchall())
+
+
 
 context = ('certificate.pem', 'key.pem')
 
