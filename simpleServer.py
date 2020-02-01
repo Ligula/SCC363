@@ -14,7 +14,7 @@ db.execute("""CREATE TABLE account (Username VARCHAR(255) PRIMARY KEY NOT NULL,
 Password VARCHAR(128) NOT NULL,
 Email VARCHAR(255) NOT NULL,
 Role VARCHAR(255),
-PWExpiryDate DATE,
+PWExpiryDate LONG,
 VerifyID INT,
 Verified BOOLEAN,
 AuthCode VARCHAR(6));""")
@@ -42,10 +42,30 @@ db.execute("SELECT name FROM sqlite_master WHERE type='table';")
 print(db.fetchall())
 
 
+def getPasswordExpiryDate(userName):
+    db.execute("SELECT PWExpiryDate FROM account WHERE username=?", (userName,))
+    rows = db.fetchall()
+    for row in rows:
+        print(row)
+    if len(rows) > 0: 
+        return row[0]
+    return None
+
+def verifyAccount(verifyId):
+    db.execute("UPDATE account SET Verified=? WHERE VerifyId=?", (True, verifyId,))
+
+def addOTC(code, userName):
+    db.execute("UPDATE account SET AuthCode=? WHERE username=?", (code, userName,))
+
+def invalidateOTC(userName):
+    db.execute("UPDATE account SET AuthCode=NULL WHERE userName=?", (userName,))
+
+def updatePatient(patientUsername, conditions):
+    db.execute("UPDATE patient SET conditions=? WHERE PatientUsername=?", (conditions, patientUsername,))
 
 context = ('certificate.pem', 'key.pem')
 
-# Maximum duration of a session
+# Maximum duration of a session (seconds)
 SESSION_TIME = 60 * 60 * 4
 
 app = Flask(__name__)
