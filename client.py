@@ -1,4 +1,5 @@
 import requests, json, hashlib, sys, os
+import pass_validate
 
 #Problems:
   # All requests need to have verify=False until certificate verification is added
@@ -13,12 +14,12 @@ fullAddress = serverAddress + ':' + serverPort
 def isServerAlive():
   r = requests.get(fullAddress + '/alive', verify=False)
   if r.text == "Alive":
-    print("Server Online")
+    print("\nServer Online")
   return True
 
 
 def login():
-  login = input('Login: ')
+  login = input('\nLogin: ')
   password = input('Password: ')
 
   data = {
@@ -35,9 +36,14 @@ def login():
 
 
 def register():
-  email = input('Email Address: ')
+  email = input('\nEmail Address: ')
+  dob = input("Date of birth i.e. DD/MM/YYYY: ")
   username = input('Username: ')
   password = input('Password: ')
+
+  while pass_validate.pass_eval(password, username, dob) != True:
+    password = input("\nPassword: ")
+
 
   data = {
     "email": email,
@@ -67,14 +73,26 @@ def otc():
   print(r.content)
   print(r.status_code)
 
-if isServerAlive() == True:
-  print("Yahoo!")
-  login()
-  #otc()
-  #register()
-  #requests.get(fullAddress + '/test', verify=False)
-else:
-  print("Fuck")
+if __name__ == "__main__":
+  if isServerAlive() == True:
+
+    choice = input("\n1) Login\n2) Register\n> ")
+
+    while choice != "1" and choice != "2":
+      print("\nInvalid input, try again!")
+      choice = input("1) Login\n2) Register\n> ")
+    
+    if choice == "1":
+      login()
+    elif choice == "2":
+      register()
+
+    # login()
+    #otc()
+    #register()
+    #requests.get(fullAddress + '/test', verify=False)
+  else:
+    print("Fuck")
 
 
   '''
