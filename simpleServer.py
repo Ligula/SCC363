@@ -5,9 +5,12 @@ import ssl, os, hashlib, sys, smtplib, random, uuid, sqlite3
 from passlib.hash import argon2
 from email.message import EmailMessage
 from functools import wraps
+from threading import Lock
 import time
 
-conn = sqlite3.connect(':memory:')
+mutex = Lock()
+
+conn = sqlite3.connect(':memory:', check_same_thread=False)
 db = conn.cursor()
 
 db.execute("""CREATE TABLE account (Username VARCHAR(255) PRIMARY KEY NOT NULL,
@@ -28,7 +31,7 @@ FOREIGN KEY(StaffUsername) REFERENCES account(username));""")
 db.execute("""CREATE TABLE session (SessionID INT,
 IPAddress VARCHAR(255),
 Username VARCHAR(255),
-StartDate DATE,
+StartDate LONG,
 FOREIGN KEY (Username) REFERENCES account(username));""")
 db.execute("""CREATE TABLE patient (Address VARCHAR(255),
 DateOfBirth CHAR(8),
@@ -41,32 +44,112 @@ FOREIGN KEY (StaffUsername) REFERENCES staff(StaffUsername));""")
 db.execute("SELECT name FROM sqlite_master WHERE type='table';")
 print(db.fetchall())
 
-
 def getPasswordExpiryDate(userName):
+    mutex.acquire()
     db.execute("SELECT PWExpiryDate FROM account WHERE username=?", (userName,))
     rows = db.fetchall()
-    for row in rows:
-        print(row)
-    if len(rows) > 0: 
-        return row[0]
+    mutex.release()
+    if len(rows) > 0:
+        return rows[0][0] # Row 0, column 0 
     return None
 
 def verifyAccount(verifyId):
+    mutex.acquire()
     db.execute("UPDATE account SET Verified=? WHERE VerifyId=?", (True, verifyId,))
+    rows = db.rowcount
+    mutex.release()
+    return rows > 0
 
 def addOTC(code, userName):
+    mutex.acquire()
     db.execute("UPDATE account SET AuthCode=? WHERE username=?", (code, userName,))
+    rows = db.rowcount
+    mutex.release()
+    return rows > 0
 
 def invalidateOTC(userName):
+    mutex.acquire()
     db.execute("UPDATE account SET AuthCode=NULL WHERE userName=?", (userName,))
+    rows = db.rowcount
+    mutex.release()
+    return rows > 0
 
 def updatePatient(patientUsername, conditions):
+    mutex.acquire()
     db.execute("UPDATE patient SET conditions=? WHERE PatientUsername=?", (conditions, patientUsername,))
+    db.commit()
+    rows = db.rowcount
+    mutex.release()
+    return rows > 0
+
+def deleteUser(username):
+    mutex.acquire()
+    # TODO: this will need to also remove info from patient table etc.
+    db.execute("DELETE FROM account WHERE username=?", (username,))
+    db.commit()
+    rows = db.rowcount
+    mutex.release()
+    return rows > 0
+
+def updateEmail(username, newEmail):
+    mutex.acquire()
+    db.execute("UPDATE account SET Email=? WHERE username=?", (newEmail, username,))
+    db.commit()
+    rows = db.rowcount
+    mutex.release()
+    return rows > 0
+
+def updatePassword(username, newPass):
+    mutex.acquire()
+    db.execute("UPDATE account SET HPassword=? WHERE username=?", (newPass, username,))
+    rows = db.rowcount
+    mutex.release()
+    return rows > 0
+
+def insertSession(ipAddress, username, startTime):
+    mutex.acquire()
+    db.execute("INSERT INTO session (IPAddress, Username, StartDate) VALUES (?, ?, ?)", (ipAddress, username, startTime,))
+    rows = db.rowcount
+    mutex.release()
+    return rows > 0
+
+def createUser(username, hpass, email, role, pwExpiry, verifyId):
+    mutex.acquire()
+    db.execute("INSERT INTO account (Username, Password, Email, Role, PWExpiryDate, VerifyId, Verified, AuthCode) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", (username, hpass, email, role, pwExpiry, verifyId, False, None),)
+    rows = db.rowcount
+    mutex.release()
+    return rows > 0
+
+def userExists(username):
+    mutex.acquire()
+    db.execute("SELECT Username FROM account WHERE Username=?", (username,))
+    rows = db.fetchall()
+    print(rows)
+    mutex.release()
+    return len(rows) > 0
+
+def getHash(username):
+    mutex.acquire()
+    db.execute("SELECT Password FROM account WHERE Username=?", (username,))
+    rows = db.fetchall()
+    mutex.release()
+    if len(rows) > 0:
+        return rows[0][0] # Row 0, column 0
+    return None
+
+def accountVerified(username):
+    mutex.acquire()
+    db.execute("SELECT Verified FROM account WHERE username=?", (username,))
+    rows = db.fetchall()
+    if len(rows) > 0:
+        return rows[0][0] # Row 0, column 0
+    mutex.release()
 
 context = ('certificate.pem', 'key.pem')
 
 # Maximum duration of a session (seconds)
 SESSION_TIME = 60 * 60 * 4
+PASSWORD_EXPIRE_TIME = 60 * 60 * 24 * 30 # 30 Days
 
 app = Flask(__name__)
 app.secret_key = 'some_secret_key_that_needs_to_be_really_long'
@@ -203,12 +286,12 @@ def login_handler():
     data = request.get_json()
     uname = data["username"]
     pwd = data["password"]
-    if uname not in users:
+    if userExists(uname) == False:
         return Response("{'message' : 'User doesn't exists'}", status=404)
     else:
-        if verify_password(pwd, users[uname]["hash"]):
+        if verify_password(pwd, getHash(uname)):
             # Don't allow user to login until their email is verified.
-            if users[uname]["verified"] == False:
+            if accountVerified(uname) == False:
                 response = {}
                 response["message"] = "Account not verified!"
                 return jsonify(response), 400
@@ -216,7 +299,7 @@ def login_handler():
             if uname in sessions:
                 session=sessions[uname]
                 if(session["ip"]==request.remote_addr):
-                    return jsonify(response), 200 #session already verified
+                    return jsonify({'message': 'Account already logged in.'}), 200 #session already verified
             # TODO: Need some session data to send back to the user.
             code = random.randrange(1, 10**4)
             code_str = '{:04}'.format(code)
@@ -268,7 +351,7 @@ def otc_handler():
 			#add session (will be changed to DB)
             uid = session["uid"]
             sessions[uid] = {}
-            sessions[uid]["user"]= userData[user]
+            sessions[uid]["user"]= user
 
 			#set session ip address to currunt ip (one session per ip)
             sessions[uid]["ip"]= userData["otc_ip"]
@@ -307,21 +390,16 @@ def register_handler():
 
     saltandhash = create_password(pwd)
 
-    if uname in users:
+    if userExists(uname):
         return Response("{'message':'username taken'}", status=400)
     else:
-        newEntry = {
-            uname: {
-                "email": email,
-                "hash" : saltandhash,
-                "verified": False,
-                "verify_id": generate_random_id()
-            }
-        }
+        vid = generate_random_id()
         # Send link to verify account.
-        verify_url = "https://localhost:5000" + url_for('verify_handler')+"?verifyId=" + newEntry[uname]["verify_id"]
+        # 30 day password expiry
+        if createUser(uname, saltandhash, email, "Doctor", time.time() + PASSWORD_EXPIRE_TIME, vid) == False:
+            return Response("{'message': 'Account name taken!'}", status=200)
+        verify_url = "https://localhost:5000" + url_for('verify_handler')+"?verifyId=" + vid
         SendEmail(email, 'SCC-363 Registration', ('Hi %s, welcome to the system! \n Please verify your email at: %s' % (uname, verify_url)))
-        users.update(newEntry)
 
     return Response("{'message':'User successfully registered, goto your emails to verify your account.'}", status=200)
 
