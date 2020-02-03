@@ -181,6 +181,15 @@ def getSessionStartTime(uname, ipAddr):
         return rows[0][0]
     return None
 
+def sessionValid(uname, ipAddr):
+    mutex.acquire()
+    db.execute("SELECT Valid FROM session WHERE Username=? AND IPAddress=?", (uname, ipAddr,))
+    rows = db.fetchall()
+    mutex.release()
+    if len(rows) > 0:
+        return rows[0][0]
+    return None
+
 def deleteSession(uname, ipAddr):
     mutex.acquire()
     db.execute("DELETE FROM session WHERE Username=? AND IPAddress=?", (uname, ipAddr,))
@@ -224,7 +233,7 @@ def login_required(f):
         if "session" in data:
             user = data["session"]["uid"]
             # Need to check session is valid too (OTC has been entered)
-            if sessionExists(user, request.remote_addr):
+            if sessionExists(user, request.remote_addr) and sessionValid(user, request.remote_addr):
                 if getSessionStartTime(user, request.remote_addr) + SESSION_TIME < time.time():
                     deleteSession(user, request.remote_addr)
                     return jsonify({"message" : "Session expired, log back in."})
