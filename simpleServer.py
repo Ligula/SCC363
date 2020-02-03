@@ -7,35 +7,36 @@ from email.message import EmailMessage
 from functools import wraps
 from threading import Lock
 import time
+from datetime import datetime
 
 mutex = Lock()
 
-conn = sqlite3.connect(':memory:', check_same_thread=False)
+conn = sqlite3.connect(':memory:', check_same_thread=False, detect_types=sqlite3.PARSE_DECLTYPES)
 db = conn.cursor()
 
-db.execute("""CREATE TABLE account (Username VARCHAR(255) PRIMARY KEY NOT NULL,
+db.execute("""CREATE TABLE IF NOT EXISTS account (Username VARCHAR(255) PRIMARY KEY NOT NULL,
 Password VARCHAR(128) NOT NULL,
 Email VARCHAR(255) NOT NULL,
 Role VARCHAR(255),
-PWExpiryDate LONG,
+PWExpiryDate DATETIME,
 VerifyID INT,
 Verified BOOLEAN);""")
-db.execute("""CREATE TABLE staff (Position VARCHAR(255),
+db.execute("""CREATE TABLE IF NOT EXISTS staff (Position VARCHAR(255),
 DateOfBirth DATE,
 FileLocation VARCHAR(255),
 StaffUsername VARCHAR(255),
 FOREIGN KEY(StaffUsername) REFERENCES account(username));""")
 '''db.execute("""CREATE TABLE regulator (Username VARCHAR (255), FOREIGN KEY REFERENCES
 (account.username));""")'''
-db.execute("""CREATE TABLE session (SessionID INT,
+db.execute("""CREATE TABLE IF NOT EXISTS session (SessionID INT,
 IPAddress VARCHAR(255),
 Username VARCHAR(255),
-StartDate LONG,
+StartDate DATETIME,
 AuthCode VARCHAR(6),
 Valid BOOL,
 FOREIGN KEY (Username) REFERENCES account(username));""")
-db.execute("""CREATE TABLE patient (Address VARCHAR(255),
-DateOfBirth CHAR(8),
+db.execute("""CREATE TABLE IF NOT EXISTS patient (Address VARCHAR(255),
+DateOfBirth DATE,
 Conditions VARCHAR(255),
 PatientUsername VARCHAR(255),
 StaffUsername VARCHAR(255), 
@@ -225,7 +226,7 @@ def login_required(f):
             user = data["session"]["uid"]
             # Need to check session is valid too (OTC has been entered)
             if sessionExists(user, request.remote_addr):
-                if getSessionStartTime(user, request.remote_addr) + SESSION_TIME < time.time():
+                if datetime.timestamp(getSessionStartTime(user, request.remote_addr)) + SESSION_TIME < time.time():
                     deleteSession(user, request.remote_addr)
                     return jsonify({"message" : "Session expired, log back in."})
                 return f(*args, **kwargs)
@@ -314,7 +315,7 @@ def login_handler():
             code_str = '{:06}'.format(code)
             # Code from 0000-9999, send to user's email.
             # Start session for the user, needs to be validated first though.
-            insertSession(request.remote_addr, uname, time.time(), code_str)
+            insertSession(request.remote_addr, uname, datetime.fromtimestamp(time.time()), code_str)
             SendEmail(getEmail(uname), 'SCC-363 OTC', 'Login OTC: ' + code_str)
             
             response = {}
