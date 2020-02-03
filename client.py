@@ -30,10 +30,10 @@ def login():
   headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
 
   r = requests.post(fullAddress + '/api/v1/login', data=jsonData, headers=headers, verify=False)
+  print(r.content)
   if(r.status_code == 200):
     print("Logged iiiiin biiiiitcheeeees")
     otc()
-  print(r.content)
 
 
 def register():

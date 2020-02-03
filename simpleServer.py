@@ -19,8 +19,7 @@ Email VARCHAR(255) NOT NULL,
 Role VARCHAR(255),
 PWExpiryDate LONG,
 VerifyID INT,
-Verified BOOLEAN,
-AuthCode VARCHAR(6));""")
+Verified BOOLEAN);""")
 db.execute("""CREATE TABLE staff (Position VARCHAR(255),
 DateOfBirth DATE,
 FileLocation VARCHAR(255),
@@ -32,6 +31,8 @@ db.execute("""CREATE TABLE session (SessionID INT,
 IPAddress VARCHAR(255),
 Username VARCHAR(255),
 StartDate LONG,
+AuthCode VARCHAR(6),
+Valid BOOL,
 FOREIGN KEY (Username) REFERENCES account(username));""")
 db.execute("""CREATE TABLE patient (Address VARCHAR(255),
 DateOfBirth CHAR(8),
@@ -106,16 +107,16 @@ def updatePassword(username, newPass):
     mutex.release()
     return rows > 0
 
-def insertSession(ipAddress, username, startTime):
+def insertSession(ipAddress, username, startTime, authCode):
     mutex.acquire()
-    db.execute("INSERT INTO session (IPAddress, Username, StartDate) VALUES (?, ?, ?)", (ipAddress, username, startTime,))
+    db.execute("INSERT INTO session (IPAddress, Username, StartDate, AuthCode, Valid) VALUES (?, ?, ?, ?, ?)", (ipAddress, username, startTime, authCode, False))
     rows = db.rowcount
     mutex.release()
     return rows > 0
 
 def createUser(username, hpass, email, role, pwExpiry, verifyId):
     mutex.acquire()
-    db.execute("INSERT INTO account (Username, Password, Email, Role, PWExpiryDate, VerifyId, Verified, AuthCode) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", (username, hpass, email, role, pwExpiry, verifyId, False, None),)
+    db.execute("INSERT INTO account (Username, Password, Email, Role, PWExpiryDate, VerifyId, Verified) VALUES (?, ?, ?, ?, ?, ?, ?)", (username, hpass, email, role, pwExpiry, verifyId, False),)
     rows = db.rowcount
     mutex.release()
     return rows > 0
@@ -141,9 +142,51 @@ def accountVerified(username):
     mutex.acquire()
     db.execute("SELECT Verified FROM account WHERE username=?", (username,))
     rows = db.fetchall()
+    mutex.release()
     if len(rows) > 0:
         return rows[0][0] # Row 0, column 0
+    return None
+
+def sessionExists(username, ip):
+    mutex.acquire()
+    db.execute("SELECT StartDate FROM session WHERE username=? AND IPAddress=?", (username, ip,))
+    rows = db.fetchall()
     mutex.release()
+    if len(rows) > 0:
+        return rows[0][0] # Row 0, column 0
+    return None
+
+def getEmail(username):
+    mutex.acquire()
+    db.execute("SELECT Email FROM account WHERE username=?", (username,))
+    rows = db.fetchall()
+    mutex.release()
+    if len(rows) > 0:
+        return rows[0][0] # Row 0, column 0
+    return None
+
+def validateSession(uname, ipAddr, otc):
+    mutex.acquire()
+    db.execute("UPDATE session SET Valid=True WHERE Username=? AND AuthCode=? AND IPAddress=?", (uname, otc, ipAddr,))
+    rows = db.rowcount
+    mutex.release()
+    return rows > 0
+
+def getSessionStartTime(uname, ipAddr):
+    mutex.acquire()
+    db.execute("SELECT StartTime FROM session WHERE Username=? AND IPAddress=?", (uname, ipAddr,))
+    rows = db.fetchall()
+    mutex.release()
+    if len(rows) > 0:
+        return rows[0][0]
+    return None
+
+def deleteSession(uname, ipAddr):
+    mutex.acquire()
+    db.execute("DELETE FROM session WHERE Username=? AND IPAddress=?", (uname, ipAddr,))
+    rows = db.rowcount
+    mutex.release()
+    return rows > 0
 
 context = ('certificate.pem', 'key.pem')
 
@@ -167,24 +210,6 @@ def verify_password(password, hash):
 def generate_random_id():
     return uuid.uuid1().hex
 
-users = {
-    #just for reference, no longer works as password isn't hashed.
-    "testUser": {
-        "email": "j.p.fletcher@lancaster.ac.uk",
-        # argon2 uses a storage format that has both password and salt together
-        # in a specific format.
-        # e.g '$argon2i$v=19$m=512,t=4,p=2$eM+ZMyYkpDRGaI3xXmuNcQ$c5DeJg3eb5dskVt1mDdxfw'
-        "hash": create_password("testPassword"),
-        "verified": True,
-        # Used for verification link.
-        "verify_id": generate_random_id()
-    }
-}
-
-#list of open sessions
-sessions = {
-}
-
 def login_required(f):
     """
         Flask decorator for endpoints that require the user to be logged in before
@@ -198,13 +223,11 @@ def login_required(f):
         # Check session exists on both client and server.
         if "session" in data:
             user = data["session"]["uid"]
-            if user in sessions:
-                if sessions[user]["validated_date"] + SESSION_TIME < time.time():
-                    del sessions[user]
+            # Need to check session is valid too (OTC has been entered)
+            if sessionExists(user, request.remote_addr):
+                if getSessionStartTime(user, request.remote_addr) + SESSION_TIME < time.time():
+                    deleteSession(user, request.remote_addr)
                     return jsonify({"message" : "Session expired, log back in."})
-                if sessions[user]["ip"] != request.remote_addr:
-                    del sessions[user]
-                    return jsonify({"message": "IP Changed, re-login is required."}), 401
                 return f(*args, **kwargs)
             else:
                 # Ask the user to login.
@@ -213,21 +236,9 @@ def login_required(f):
             return jsonify({"message": "Invalid request"}), 400
     return decorated_function
 
-@app.route('/')
-@login_required
-def hello_world():
-    return 'Hello World'
-
-
 @app.route('/alive')
 def alive():
     return 'Alive'
-
-
-@app.route('/test')
-def test():
-    print(users)
-    return 'Done'
 
 @app.route('/api/v1/user/{uid}')
 @login_required
@@ -275,8 +286,7 @@ def get_audits():
 @login_required
 def logout_handler():
     data = request.get_json()
-    if data["session"]["uid"] in sessions:
-        del sessions[data["session"]["uid"]]
+    if deleteSession(data["session"]["uid"], request.remote_addr):
         return jsonify({"message": "You've been logged out"}), 200
     else:
         return jsonify({"message": "No session to logout of."}), 200
@@ -289,6 +299,7 @@ def login_handler():
     if userExists(uname) == False:
         return Response("{'message' : 'User doesn't exists'}", status=404)
     else:
+        # TODO: check password expiry date.
         if verify_password(pwd, getHash(uname)):
             # Don't allow user to login until their email is verified.
             if accountVerified(uname) == False:
@@ -296,17 +307,15 @@ def login_handler():
                 response["message"] = "Account not verified!"
                 return jsonify(response), 400
 			
-            if uname in sessions:
-                session=sessions[uname]
-                if(session["ip"]==request.remote_addr):
+            if sessionExists(uname, request.remote_addr):
                     return jsonify({'message': 'Account already logged in.'}), 200 #session already verified
             # TODO: Need some session data to send back to the user.
-            code = random.randrange(1, 10**4)
-            code_str = '{:04}'.format(code)
+            code = random.randrange(1, 10**6)
+            code_str = '{:06}'.format(code)
             # Code from 0000-9999, send to user's email.
-            users[uname]["otc"] = code_str
-            users[uname]["otc_ip"] = request.remote_addr
-            SendEmail(users[uname]["email"], 'SCC-363 OTC', 'Login OTC: ' + code_str)
+            # Start session for the user, needs to be validated first though.
+            insertSession(request.remote_addr, uname, time.time(), code_str)
+            SendEmail(getEmail(uname), 'SCC-363 OTC', 'Login OTC: ' + code_str)
             
             response = {}
             response["message"] = "Password correct!"
@@ -331,38 +340,11 @@ def otc_handler():
     session = data["session"]
     user = session["uid"]
     # Does the user exist?
-    if user in users:
-        userData = users[user]
-        # Check OTC exists and is valid.
-        if len(userData["otc"]) != 4:
-            return Response("{'message': 'No OTC for user'}", status=400)
-        # Check ip matches ip that started the login request.
-        if userData["otc_ip"] != request.remote_addr:
-            # Blank fields to invalidate otc.
-            users[user]["otc"] = ""
-            users[user]["otc_ip"] = ""
-            return Response("{'message': 'IP changed, session invalidated'}", status=400)
-        
-        if userData["otc"] == code:
+    if userExists(user):
+        if validateSession(user, request.remote_addr, code) == True:
             # TODO: Need to do some other stuff in here too for authenticating user.
             # Allow them into the system since the code is correct.
-            # Modify session? Update field in database?
-			
-			#add session (will be changed to DB)
-            uid = session["uid"]
-            sessions[uid] = {}
-            sessions[uid]["user"]= user
-
-			#set session ip address to currunt ip (one session per ip)
-            sessions[uid]["ip"]= userData["otc_ip"]
-			
-			#remember time so session can time-out
-            sessions[uid]["validated_date"] = time.time()
-
-            # Since the user has entered the correct code, 
-            # discard the one time code so it cannot be reused.
-            users[user]["otc"] = ""
-            users[user]["otc_ip"] = ""
+            # Session is set to valid, allowing users access to endpoints.
             return Response("{'message': 'OTC correct!'}", status=200)
         else:
             return Response("{'message': 'OTC incorrect!'}", status=200)
@@ -373,12 +355,8 @@ def otc_handler():
 @app.route('/api/v1/verify', methods=['GET'])
 def verify_handler():
     vid = request.args.get('verifyId')
-    for user in users:
-        # If the id matches, then verify the user.
-        if users[user]["verify_id"] == vid:
-            users[user]["verified"] = True
-            return Response("{'message': 'Your account has been verified, you can now login.'}")
-
+    if verifyAccount(vid) == True:
+        return Response("{'message': 'Your account has been verified, you can now login.'}")
     return Response("{'message': 'Unknown verify id.'}"), 404
 
 @app.route('/api/v1/register', methods=['POST'])
@@ -404,18 +382,9 @@ def register_handler():
     return Response("{'message':'User successfully registered, goto your emails to verify your account.'}", status=200)
 
 
-#def createHash(password):
-#    random = os.urandom(32)
-#    salt = b64encode(random).decode('utf-8')
-#    saltedpwd = password + salt
-#    hashword = hasher(saltedpwd.encode('utf-8'))
-#    return [salt, hashword]
-
-
 # This account doesn't actually exist yet.
 email_user = "scc363.verify@gmail.com"
 email_password = "some_magic_password"
-
 
 def SendEmail(email, subject, body):
     """Sends an email using gmail to an email address
