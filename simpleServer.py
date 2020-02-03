@@ -260,7 +260,33 @@ def read_user(uid):
         Doctor can only read their own patients data. Maybe blank out address since it isn't needed?
         Regulator can read all
     """
-    return "some data"
+	data = request.get_json()
+	if "session" in data:
+	
+		user = data["session"]["uid"]
+		db.execute('SELECT Role FROM account WHERE Username=?', (user,))
+		role=db.fetchone()[0]
+		
+		#get own data/regulator data (not formatted)
+		if(user==uid or role == "Regulator"):
+			db.execute('SELECT * FROM account WHERE Username=?', (uid,))
+			return db.fetchone();
+		
+		if role == "patient":
+			db.execute('SELECT StaffUsername FROM patient WHERE PatientUsername=?', (user,))
+			staff=db.fetchone()[0]
+			if(uid == staff):
+				db.execute('SELECT StaffUsername, Position FROM staff WHERE StaffUsername=?', (uid,))
+				return staff;
+				
+		elif role == "staff":
+			db.execute('SELECT a.Username, a.Email, p.DateOfBirth, p.conditions, p.StaffUsername FROM patient p,account a WHERE p.PatientUsername = a.Username AND a.Username=?', (uid,))
+			patient=db.fetchone();
+			if patient[4]==user:
+				return patient;
+		return "not allowed"
+		
+	return jsonify({"message": "Invalid request"}), 400
 
 @app.route('/api/v1/user/{uid}', methods=["UPDATE"])
 @login_required
@@ -271,7 +297,30 @@ def update_user(uid):
         Doctors will only be able to modify the patients that are assigned to them
         Regulator cannot? modify anything
     """
-    return "some data"
+	data = request.get_json()
+	if "session" in data:
+	
+		user = data["session"]["uid"]
+		db.execute('SELECT Role FROM account WHERE Username=?', (user,))
+		role=db.fetchone()[0]
+		
+		#get own data/regulator data (not formatted)
+		if(user==uid):
+			#db.execute('UPDATE account SET  WHERE Username=?', (uid,))
+			if role == "patient":
+				#db.execute('UPDATE patient SET  WHERE PatientUsername=?', (uid,))
+				return "some data"
+					
+			elif role == "staff":
+				#db.execute('UPDATE staff SET  WHERE StaffUsername=?', (uid,))
+				return "some data":
+				
+			else
+				return "some data"
+		else:
+			return "not allowed"
+		
+    return jsonify({"message": "Invalid request"}), 400
 
 @app.route('/api/v1/user/{uid}', methods=["DELETE"])
 @login_required
@@ -282,7 +331,31 @@ def delete_user(uid):
         Doctors can't delete patients.
         Regulator cannot delete anyone.
     """
-    return "some_data"
+    data = request.get_json()
+	if "session" in data:
+	
+		user = data["session"]["uid"]
+		db.execute('SELECT Role FROM account WHERE Username=?', (user,))
+		role=db.fetchone()[0]
+		
+		#get own data/regulator data (not formatted)
+		if(user==uid):
+			db.execute('DELETE FROM account WHERE Username=?', (uid,))
+			if role == "patient":
+				db.execute('DELETE FROM patient WHERE PatientUsername=?', (uid,))
+				return "some data"
+					
+			elif role == "staff":
+				db.execute('DELETE FROM staff WHERE StaffUsername=?', (uid,))
+				return "some data":
+				
+			else
+				return "some data"
+		else:
+			return "not allowed"
+		
+		
+	return jsonify({"message": "Invalid request"}), 400
 
 @app.route('/api/v1/audit', methods=["GET"])
 @login_required
@@ -290,7 +363,20 @@ def get_audits():
     """
         Only regulator has access to this.
     """
-    return "some_data"
+    data = request.get_json()
+	if "session" in data:
+	
+		user = data["session"]["uid"]
+		db.execute('SELECT Role FROM account WHERE Username=?', (user,))
+		role=db.fetchone()[0]
+		
+		#get own data/regulator data (not formatted)
+		if(role == "Regulator"):
+			 return "some_data"
+		
+		return "not allowed"
+		
+	return jsonify({"message": "Invalid request"}), 400
 
 @app.route('/api/v1/logout', methods=["GET"])
 @login_required
