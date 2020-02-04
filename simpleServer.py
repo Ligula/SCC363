@@ -205,6 +205,10 @@ context = ('certificate.pem', 'key.pem')
 SESSION_TIME = 60 * 60 * 4
 PASSWORD_EXPIRE_TIME = 60 * 60 * 24 * 30 # 30 Days
 
+REGULATOR = "regulator"
+PATIENT = "patient"
+DOCTOR = "doctor"
+
 app = Flask(__name__)
 app.secret_key = 'some_secret_key_that_needs_to_be_really_long'
 
@@ -271,14 +275,14 @@ def read_user(uid):
         mutex.release()
 
         #get own data/regulator data (not formatted)
-        if(user==uid or role == "Regulator"):
+        if(user==uid or role == REGULATOR):
             mutex.acquire()
             db.execute('SELECT * FROM account WHERE Username=?', (uid,))
             data = db.fetchone()
             mutex.release()
             return data
         
-        if role == "patient":
+        if role == PATIENT:
             mutex.acquire()
             db.execute('SELECT StaffUsername FROM patient WHERE PatientUsername=?', (user,))
             staff=db.fetchone()[0]
@@ -290,7 +294,7 @@ def read_user(uid):
                 mutex.release()
                 return data
                 
-        elif role == "staff":
+        elif role == DOCTOR:
             mutex.acquire()
             db.execute('SELECT a.Username, a.Email, p.DateOfBirth, p.conditions, p.StaffUsername FROM patient p,account a WHERE p.PatientUsername = a.Username AND a.Username=?', (uid,))
             patient=db.fetchone()
@@ -335,11 +339,11 @@ def update_user(uid):
         #get own data/regulator data (not formatted)
         if(user==uid):
             #db.execute('UPDATE account SET ... WHERE Username=?', (uid,))
-            if role == "patient":
+            if role == PATIENT:
                 #db.execute('UPDATE patient SET ... WHERE PatientUsername=?', (uid,))
                 return "some data"
                     
-            elif role == "staff":
+            elif role == DOCTOR:
                 #db.execute('UPDATE staff SET ... WHERE StaffUsername=?', (uid,))
                 return "some data"
             else:
@@ -395,7 +399,7 @@ def get_audits():
         mutex.release()
         
         #get own data/regulator data (not formatted)
-        if(role == "Regulator"):
+        if(role == REGULATOR):
              return "some_data"
         
         return "not allowed"
