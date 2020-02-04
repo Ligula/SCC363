@@ -486,7 +486,6 @@ def register_handler():
             return Response("{'message': 'Account name taken!'}", status=200)
         verify_url = "https://localhost:5000" + url_for('verify_handler')+"?verifyId=" + vid
         SendEmail(email, 'SCC-363 Registration', ('Hi %s, welcome to the system! \n Please verify your email at: %s' % (uname, verify_url)))
-
     return Response("{'message':'User successfully registered, goto your emails to verify your account.'}", status=200)
 
 
