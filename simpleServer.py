@@ -286,7 +286,7 @@ def read_user(uid):
             db.execute('SELECT * FROM account WHERE Username=?', (uid,))
             data = db.fetchone()
             mutex.release()
-            return data
+            return data, 200
         
         if role == PATIENT:
             mutex.acquire()
@@ -298,7 +298,7 @@ def read_user(uid):
                 db.execute('SELECT StaffUsername, Position FROM staff WHERE StaffUsername=?', (uid,))
                 data = db.fetchone()
                 mutex.release()
-                return data
+                return data, 200
                 
         elif role == DOCTOR:
             mutex.acquire()
@@ -306,8 +306,8 @@ def read_user(uid):
             patient=db.fetchone()
             mutex.release()
             if patient[4]==user:
-                return patient
-        return "not allowed"
+                return patient, 200
+        return jsonify({"message": "You cannot do this operation"}), 400
         
     return jsonify({"message": "Invalid request"}), 400
 

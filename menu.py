@@ -1,4 +1,4 @@
-#import keyboard #import module keyboard
+import keyboard
 
 print("Welcome to the AAA service menu.")
 role = input("Enter your role: ")
