@@ -472,6 +472,7 @@ def register_handler():
     email = data["email"]
     uname = data["username"]
     pwd = data["password"]
+    role = data["role"]
 
     saltandhash = create_password(pwd)
 
@@ -481,7 +482,7 @@ def register_handler():
         vid = generate_random_id()
         # Send link to verify account.
         # 30 day password expiry
-        if createUser(uname, saltandhash, email, "Doctor", time.time() + PASSWORD_EXPIRE_TIME, vid) == False:
+        if createUser(uname, saltandhash, email, role, time.time() + PASSWORD_EXPIRE_TIME, vid) == False:
             return Response("{'message': 'Account name taken!'}", status=200)
         verify_url = "https://localhost:5000" + url_for('verify_handler')+"?verifyId=" + vid
         SendEmail(email, 'SCC-363 Registration', ('Hi %s, welcome to the system! \n Please verify your email at: %s' % (uname, verify_url)))
