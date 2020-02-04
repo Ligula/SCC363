@@ -277,6 +277,9 @@ def read_user(uid):
         role=db.fetchone()[0]
         mutex.release()
         
+        if(userExists(uid)==False):
+            return jsonify({"message": "User doesn't exist"}), 400
+        
         #get own data/regulator data (not formatted)
         if(user==uid or role == REGULATOR):
             mutex.acquire()
@@ -319,14 +322,14 @@ def update_user(uid):
 
         List of possible request formats...
         {
-            email?: "email@google.com"
+            email: "email@google.com"
         },
         {
             oldPassword: "myPass",
             newPassword: "newPass"
         },
         {
-            patientUsername: "user1",
+            staffUsername: "user1",
             patientCondition: "there condition" 
         }
 
@@ -341,27 +344,36 @@ def update_user(uid):
         
         #get own data/regulator data (not formatted)
         if(user==uid):
-            if "Email" in data:
-                updateEmail(uid,data["Email"])
-            if "Password" in data:
-                updatePassword(uid,data["Password"])
-            return "some data"
+            if "email" in data:
+                updateEmail(uid,data["email"])
+            if "newPassword" in data && "oldPassword" in data:
+                if verify_password(data["oldPassword"],getHash(uid)):
+                    updatePassword(uid,data["newPassword"])
+            return jsonify({"message": "Personal details updated"}), 200
         else:
             mutex.acquire()
-            db.execute('SELECT StaffUsername FROM patient WHERE PatientUsername = ?', (uid,))
-            patient=db.fetchone();
+            db.execute('SELECT Role FROM account WHERE Username=?', (uid,))
+            if db.rowcount == 0:
+                mutex.release()
+                return jsonify({"message": "User doesn't exist"}), 400
+            subjectRole=db.fetchone()[0]
             mutex.release()
-            if patient[0]==user:
-                updateString=""
-                if "Conditions" in data:
-                    updateString+="Conditions = \""+data["Conditions"]+"\""
-                if "Staff" in data:
-                    if updateString != "":
-                        updateString+= ", "
-                    updateString+="StaffUsername = \""+data["Staff"]+"\""
-                
-                db.execute('UPDATE patient SET ? WHERE PatientUsername=?', (updateString,uid))
-            return "not allowed"
+            
+            if(subjectRole==PATIENT and role==DOCTOR):
+                mutex.acquire()
+                db.execute('SELECT StaffUsername FROM patient WHERE PatientUsername = ?', (uid,))
+                patient=db.fetchone();
+                mutex.release()
+                if patient[0]==user:
+                    updateString=""
+                    if "patientCondition" in data:
+                        updateString+="Conditions = \""+data["patientCondition"]+"\""
+                    elif "staffUsername" in data:
+                        updateString+="StaffUsername = \""+data["staffUsername"]+"\""
+                    
+                    db.execute('UPDATE patient SET ? WHERE PatientUsername=?', (updateString,uid))
+                    return jsonify({"message": uid+" details updated"}), 200
+            return jsonify({"message": "You cannot change this persons details"}), 400
         
     return jsonify({"message": "Invalid request"}), 400
 
@@ -381,6 +393,7 @@ def delete_user(uid):
         
         #get own data/regulator data (not formatted)
         if(user==uid):
+        
             db.execute('DELETE FROM patient WHERE PatientUsername=?', (uid,))
                     
             db.execute('DELETE FROM staff WHERE StaffUsername=?', (uid,))
