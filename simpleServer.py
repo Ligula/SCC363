@@ -308,7 +308,21 @@ def update_user(uid):
         Modifies a users details.
         Patient will only be able to modify their own user details.
         Doctors will only be able to modify the patients that are assigned to them
-        Regulator cannot? modify anything
+        Regulator can only modify their own details.
+
+        List of possible request formats...
+        {
+            email?: "email@google.com"
+        },
+        {
+            oldPassword: "myPass",
+            newPassword: "newPass"
+        },
+        {
+            patientUsername: "user1",
+            patientCondition: "there condition" 
+        }
+
     """
     data = request.get_json()
     if "session" in data:
@@ -328,7 +342,6 @@ def update_user(uid):
             elif role == "staff":
                 #db.execute('UPDATE staff SET ... WHERE StaffUsername=?', (uid,))
                 return "some data"
-                
             else:
                 return "some data"
         else:
