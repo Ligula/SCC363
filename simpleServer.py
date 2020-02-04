@@ -208,6 +208,10 @@ context = ('certificate.pem', 'key.pem')
 SESSION_TIME = 60 * 60 * 4
 PASSWORD_EXPIRE_TIME = 60 * 60 * 24 * 30 # 30 Days
 
+REGULATOR = "regulator"
+PATIENT = "patient"
+DOCTOR = "doctor"
+
 app = Flask(__name__)
 app.secret_key = 'some_secret_key_that_needs_to_be_really_long'
 
@@ -274,14 +278,14 @@ def read_user(uid):
         mutex.release()
         
         #get own data/regulator data (not formatted)
-        if(user==uid or role == "Regulator"):
+        if(user==uid or role == REGULATOR):
             mutex.acquire()
             db.execute('SELECT * FROM account WHERE Username=?', (uid,))
             data = db.fetchone()
             mutex.release()
             return data
         
-        if role == "patient":
+        if role == PATIENT:
             mutex.acquire()
             db.execute('SELECT StaffUsername FROM patient WHERE PatientUsername=?', (user,))
             staff=db.fetchone()[0]
@@ -293,13 +297,13 @@ def read_user(uid):
                 mutex.release()
                 return data
                 
-        elif role == "staff":
+        elif role == DOCTOR:
             mutex.acquire()
             db.execute('SELECT a.Username, a.Email, p.DateOfBirth, p.conditions, p.StaffUsername FROM patient p,account a WHERE p.PatientUsername = a.Username AND a.Username=?', (uid,))
-            patient=db.fetchone();
+            patient=db.fetchone()
             mutex.release()
             if patient[4]==user:
-                return patient;
+                return patient
         return "not allowed"
         
     return jsonify({"message": "Invalid request"}), 400
@@ -311,7 +315,21 @@ def update_user(uid):
         Modifies a users details.
         Patient will only be able to modify their own user details.
         Doctors will only be able to modify the patients that are assigned to them
-        Regulator cannot? modify anything
+        Regulator can only modify their own details.
+
+        List of possible request formats...
+        {
+            email?: "email@google.com"
+        },
+        {
+            oldPassword: "myPass",
+            newPassword: "newPass"
+        },
+        {
+            patientUsername: "user1",
+            patientCondition: "there condition" 
+        }
+
     """
     data = request.get_json()
     if "session" in data:
@@ -370,9 +388,9 @@ def delete_user(uid):
             db.execute('DELETE FROM session WHERE Username=?', (uid,))
                 
             db.execute('DELETE FROM account WHERE Username=?', (uid,))
-            return "some data"
+            return jsonify({"message": "You're account has been removed."}), 200
         else:
-            return "not allowed"
+            return jsonify({"message": "You cannot delete someone else"}), 400
         
         
     return jsonify({"message": "Invalid request"}), 400
@@ -393,7 +411,7 @@ def get_audits():
         mutex.release()
         
         #get own data/regulator data (not formatted)
-        if(role == "Regulator"):
+        if(role == REGULATOR):
              return "some_data"
         
         return "not allowed"
@@ -483,6 +501,7 @@ def register_handler():
     email = data["email"]
     uname = data["username"]
     pwd = data["password"]
+    role = data["role"]
 
     saltandhash = create_password(pwd)
 
@@ -492,11 +511,10 @@ def register_handler():
         vid = generate_random_id()
         # Send link to verify account.
         # 30 day password expiry
-        if createUser(uname, saltandhash, email, "Doctor", time.time() + PASSWORD_EXPIRE_TIME, vid) == False:
+        if createUser(uname, saltandhash, email, role, time.time() + PASSWORD_EXPIRE_TIME, vid) == False:
             return Response("{'message': 'Account name taken!'}", status=200)
         verify_url = "https://localhost:5000" + url_for('verify_handler')+"?verifyId=" + vid
         SendEmail(email, 'SCC-363 Registration', ('Hi %s, welcome to the system! \n Please verify your email at: %s' % (uname, verify_url)))
-
     return Response("{'message':'User successfully registered, goto your emails to verify your account.'}", status=200)
 
 
