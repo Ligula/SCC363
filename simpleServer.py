@@ -359,9 +359,9 @@ def delete_user(uid):
             db.execute('DELETE FROM session WHERE Username=?', (uid,))
                 
             db.execute('DELETE FROM account WHERE Username=?', (uid,))
-            return "some data"
+            return jsonify({"message": "You're account has been removed."}), 200
         else:
-            return "not allowed"
+            return jsonify({"message": "You cannot delete someone else"}), 400
         
         
     return jsonify({"message": "Invalid request"}), 400
