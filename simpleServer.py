@@ -14,26 +14,29 @@ mutex = Lock()
 conn = sqlite3.connect(':memory:', check_same_thread=False, detect_types=sqlite3.PARSE_DECLTYPES)
 db = conn.cursor()
 
-db.execute("""CREATE TABLE IF NOT EXISTS account (Username VARCHAR(255) PRIMARY KEY NOT NULL,
+db.execute("""CREATE TABLE IF NOT EXISTS account (
+Username VARCHAR(255) PRIMARY KEY NOT NULL,
 Password VARCHAR(128) NOT NULL,
 Email VARCHAR(255) NOT NULL,
 Role VARCHAR(255),
 PWExpiryDate DATETIME,
 VerifyID INT,
 Verified BOOLEAN);""")
-db.execute("""CREATE TABLE IF NOT EXISTS staff (Position VARCHAR(255),
+db.execute("""CREATE TABLE IF NOT EXISTS staff (
+Position VARCHAR(255),
 DateOfBirth DATE,
 FileLocation VARCHAR(255),
 StaffUsername VARCHAR(255),
 FOREIGN KEY(StaffUsername) REFERENCES account(username));""")
-db.execute("""CREATE TABLE IF NOT EXISTS session (SessionID INT,
+db.execute("""CREATE TABLE IF NOT EXISTS session (
+SessionID INT,
 IPAddress VARCHAR(255),
 Username VARCHAR(255),
 StartDate DATETIME,
 AuthCode VARCHAR(6),
 Valid BOOL,
 FOREIGN KEY (Username) REFERENCES account(username));""")
-db.execute("""CREATE TABLE IF NOT EXISTS patient (Address VARCHAR(255),
+db.execute("""CREATE TABLE IF NOT EXISTS patient (
 DateOfBirth DATE,
 Conditions VARCHAR(255),
 PatientUsername VARCHAR(255),
@@ -320,18 +323,26 @@ def update_user(uid):
         
         #get own data/regulator data (not formatted)
         if(user==uid):
-            #db.execute('UPDATE account SET ... WHERE Username=?', (uid,))
-            if role == "patient":
-                #db.execute('UPDATE patient SET ... WHERE PatientUsername=?', (uid,))
-                return "some data"
-                    
-            elif role == "staff":
-                #db.execute('UPDATE staff SET ... WHERE StaffUsername=?', (uid,))
-                return "some data":
-                
-            else
-                return "some data"
+            if "Email" in data:
+                updateEmail(uid,data["Email"])
+            if "Password" in data:
+                updatePassword(uid,data["Password"])
+            return "some data"
         else:
+            mutex.acquire()
+            db.execute('SELECT StaffUsername FROM patient WHERE PatientUsername = ?', (uid,))
+            patient=db.fetchone();
+            mutex.release()
+            if patient[0]==user:
+                updateString=""
+                if "Conditions" in data:
+                    updateString+="Conditions = \""+data["Conditions"]+"\""
+                if "Staff" in data:
+                    if updateString != "":
+                        updateString+= ", "
+                    updateString+="StaffUsername = \""+data["Staff"]+"\""
+                
+                db.execute('UPDATE patient SET ? WHERE PatientUsername=?', (updateString,uid))
             return "not allowed"
         
     return jsonify({"message": "Invalid request"}), 400
