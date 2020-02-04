@@ -26,8 +26,6 @@ DateOfBirth DATE,
 FileLocation VARCHAR(255),
 StaffUsername VARCHAR(255),
 FOREIGN KEY(StaffUsername) REFERENCES account(username));""")
-'''db.execute("""CREATE TABLE regulator (Username VARCHAR (255), FOREIGN KEY REFERENCES
-(account.username));""")'''
 db.execute("""CREATE TABLE IF NOT EXISTS session (SessionID INT,
 IPAddress VARCHAR(255),
 Username VARCHAR(255),
@@ -87,7 +85,10 @@ def updatePatient(patientUsername, conditions):
 def deleteUser(username):
     mutex.acquire()
     # TODO: this will need to also remove info from patient table etc.
-    db.execute("DELETE FROM account WHERE username=?", (username,))
+	db.execute("DELETE FROM staff WHERE StaffUsername=?", (username,))
+	db.execute("DELETE FROM patient WHERE PatientUsername=?", (username,))
+	db.execute("DELETE FROM session WHERE username=?", (username,))
+	db.execute("DELETE FROM account WHERE username=?", (username,))
     db.commit()
     rows = db.rowcount
     mutex.release()
@@ -264,24 +265,36 @@ def read_user(uid):
 	if "session" in data:
 	
 		user = data["session"]["uid"]
+		mutex.aquire()
 		db.execute('SELECT Role FROM account WHERE Username=?', (user,))
 		role=db.fetchone()[0]
+		mutex.release()
 		
 		#get own data/regulator data (not formatted)
 		if(user==uid or role == "Regulator"):
+			mutex.aquire()
 			db.execute('SELECT * FROM account WHERE Username=?', (uid,))
-			return db.fetchone();
+			data = db.fetchone()
+			mutex.release()
+			return data
 		
 		if role == "patient":
+			mutex.aquire()
 			db.execute('SELECT StaffUsername FROM patient WHERE PatientUsername=?', (user,))
 			staff=db.fetchone()[0]
+			mutex.release()
 			if(uid == staff):
+				mutex.aquire()
 				db.execute('SELECT StaffUsername, Position FROM staff WHERE StaffUsername=?', (uid,))
-				return staff;
+				data = db.fetchone()
+				mutex.release()
+				return data
 				
 		elif role == "staff":
+			mutex.aquire()
 			db.execute('SELECT a.Username, a.Email, p.DateOfBirth, p.conditions, p.StaffUsername FROM patient p,account a WHERE p.PatientUsername = a.Username AND a.Username=?', (uid,))
 			patient=db.fetchone();
+			mutex.release()
 			if patient[4]==user:
 				return patient;
 		return "not allowed"
@@ -299,20 +312,21 @@ def update_user(uid):
     """
 	data = request.get_json()
 	if "session" in data:
-	
 		user = data["session"]["uid"]
+		mutex.aquire()
 		db.execute('SELECT Role FROM account WHERE Username=?', (user,))
 		role=db.fetchone()[0]
+		mutex.release()
 		
 		#get own data/regulator data (not formatted)
 		if(user==uid):
-			#db.execute('UPDATE account SET  WHERE Username=?', (uid,))
+			#db.execute('UPDATE account SET ... WHERE Username=?', (uid,))
 			if role == "patient":
-				#db.execute('UPDATE patient SET  WHERE PatientUsername=?', (uid,))
+				#db.execute('UPDATE patient SET ... WHERE PatientUsername=?', (uid,))
 				return "some data"
 					
 			elif role == "staff":
-				#db.execute('UPDATE staff SET  WHERE StaffUsername=?', (uid,))
+				#db.execute('UPDATE staff SET ... WHERE StaffUsername=?', (uid,))
 				return "some data":
 				
 			else
@@ -335,22 +349,17 @@ def delete_user(uid):
 	if "session" in data:
 	
 		user = data["session"]["uid"]
-		db.execute('SELECT Role FROM account WHERE Username=?', (user,))
-		role=db.fetchone()[0]
 		
 		#get own data/regulator data (not formatted)
 		if(user==uid):
-			db.execute('DELETE FROM account WHERE Username=?', (uid,))
-			if role == "patient":
-				db.execute('DELETE FROM patient WHERE PatientUsername=?', (uid,))
-				return "some data"
+			db.execute('DELETE FROM patient WHERE PatientUsername=?', (uid,))
 					
-			elif role == "staff":
-				db.execute('DELETE FROM staff WHERE StaffUsername=?', (uid,))
-				return "some data":
+			db.execute('DELETE FROM staff WHERE StaffUsername=?', (uid,))
 				
-			else
-				return "some data"
+			db.execute('DELETE FROM session WHERE Username=?', (uid,))
+				
+			db.execute('DELETE FROM account WHERE Username=?', (uid,))
+			return "some data"
 		else:
 			return "not allowed"
 		
@@ -367,8 +376,10 @@ def get_audits():
 	if "session" in data:
 	
 		user = data["session"]["uid"]
+		mutex.aquire()
 		db.execute('SELECT Role FROM account WHERE Username=?', (user,))
 		role=db.fetchone()[0]
+		mutex.release()
 		
 		#get own data/regulator data (not formatted)
 		if(role == "Regulator"):
