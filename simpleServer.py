@@ -265,38 +265,38 @@ def read_user(uid):
     if "session" in data:
     
         user = data["session"]["uid"]
-        mutex.aquire()
+        mutex.acquire()
         db.execute('SELECT Role FROM account WHERE Username=?', (user,))
         role=db.fetchone()[0]
         mutex.release()
 
         #get own data/regulator data (not formatted)
         if(user==uid or role == "Regulator"):
-            mutex.aquire()
+            mutex.acquire()
             db.execute('SELECT * FROM account WHERE Username=?', (uid,))
             data = db.fetchone()
             mutex.release()
             return data
         
         if role == "patient":
-            mutex.aquire()
+            mutex.acquire()
             db.execute('SELECT StaffUsername FROM patient WHERE PatientUsername=?', (user,))
             staff=db.fetchone()[0]
             mutex.release()
             if(uid == staff):
-                mutex.aquire()
+                mutex.acquire()
                 db.execute('SELECT StaffUsername, Position FROM staff WHERE StaffUsername=?', (uid,))
                 data = db.fetchone()
                 mutex.release()
                 return data
                 
         elif role == "staff":
-            mutex.aquire()
+            mutex.acquire()
             db.execute('SELECT a.Username, a.Email, p.DateOfBirth, p.conditions, p.StaffUsername FROM patient p,account a WHERE p.PatientUsername = a.Username AND a.Username=?', (uid,))
-            patient=db.fetchone();
+            patient=db.fetchone()
             mutex.release()
             if patient[4]==user:
-                return patient;
+                return patient
         return "not allowed"
         
     return jsonify({"message": "Invalid request"}), 400
@@ -313,7 +313,7 @@ def update_user(uid):
     data = request.get_json()
     if "session" in data:
         user = data["session"]["uid"]
-        mutex.aquire()
+        mutex.acquire()
         db.execute('SELECT Role FROM account WHERE Username=?', (user,))
         role=db.fetchone()[0]
         mutex.release()
@@ -376,7 +376,7 @@ def get_audits():
     if "session" in data:
     
         user = data["session"]["uid"]
-        mutex.aquire()
+        mutex.acquire()
         db.execute('SELECT Role FROM account WHERE Username=?', (user,))
         role=db.fetchone()[0]
         mutex.release()
