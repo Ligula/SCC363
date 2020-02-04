@@ -346,7 +346,7 @@ def update_user(uid):
         if(user==uid):
             if "email" in data:
                 updateEmail(uid,data["email"])
-            if "newPassword" in data && "oldPassword" in data:
+            if "newPassword" in data and "oldPassword" in data:
                 if verify_password(data["oldPassword"],getHash(uid)):
                     updatePassword(uid,data["newPassword"])
             return jsonify({"message": "Personal details updated"}), 200
