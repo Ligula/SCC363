@@ -85,10 +85,10 @@ def updatePatient(patientUsername, conditions):
 def deleteUser(username):
     mutex.acquire()
     # TODO: this will need to also remove info from patient table etc.
-	db.execute("DELETE FROM staff WHERE StaffUsername=?", (username,))
-	db.execute("DELETE FROM patient WHERE PatientUsername=?", (username,))
-	db.execute("DELETE FROM session WHERE username=?", (username,))
-	db.execute("DELETE FROM account WHERE username=?", (username,))
+    db.execute("DELETE FROM staff WHERE StaffUsername=?", (username,))
+    db.execute("DELETE FROM patient WHERE PatientUsername=?", (username,))
+    db.execute("DELETE FROM session WHERE username=?", (username,))
+    db.execute("DELETE FROM account WHERE username=?", (username,))
     db.commit()
     rows = db.rowcount
     mutex.release()
@@ -261,45 +261,45 @@ def read_user(uid):
         Doctor can only read their own patients data. Maybe blank out address since it isn't needed?
         Regulator can read all
     """
-	data = request.get_json()
-	if "session" in data:
-	
-		user = data["session"]["uid"]
-		mutex.aquire()
-		db.execute('SELECT Role FROM account WHERE Username=?', (user,))
-		role=db.fetchone()[0]
-		mutex.release()
-		
-		#get own data/regulator data (not formatted)
-		if(user==uid or role == "Regulator"):
-			mutex.aquire()
-			db.execute('SELECT * FROM account WHERE Username=?', (uid,))
-			data = db.fetchone()
-			mutex.release()
-			return data
-		
-		if role == "patient":
-			mutex.aquire()
-			db.execute('SELECT StaffUsername FROM patient WHERE PatientUsername=?', (user,))
-			staff=db.fetchone()[0]
-			mutex.release()
-			if(uid == staff):
-				mutex.aquire()
-				db.execute('SELECT StaffUsername, Position FROM staff WHERE StaffUsername=?', (uid,))
-				data = db.fetchone()
-				mutex.release()
-				return data
-				
-		elif role == "staff":
-			mutex.aquire()
-			db.execute('SELECT a.Username, a.Email, p.DateOfBirth, p.conditions, p.StaffUsername FROM patient p,account a WHERE p.PatientUsername = a.Username AND a.Username=?', (uid,))
-			patient=db.fetchone();
-			mutex.release()
-			if patient[4]==user:
-				return patient;
-		return "not allowed"
-		
-	return jsonify({"message": "Invalid request"}), 400
+    data = request.get_json()
+    if "session" in data:
+    
+        user = data["session"]["uid"]
+        mutex.aquire()
+        db.execute('SELECT Role FROM account WHERE Username=?', (user,))
+        role=db.fetchone()[0]
+        mutex.release()
+
+        #get own data/regulator data (not formatted)
+        if(user==uid or role == "Regulator"):
+            mutex.aquire()
+            db.execute('SELECT * FROM account WHERE Username=?', (uid,))
+            data = db.fetchone()
+            mutex.release()
+            return data
+        
+        if role == "patient":
+            mutex.aquire()
+            db.execute('SELECT StaffUsername FROM patient WHERE PatientUsername=?', (user,))
+            staff=db.fetchone()[0]
+            mutex.release()
+            if(uid == staff):
+                mutex.aquire()
+                db.execute('SELECT StaffUsername, Position FROM staff WHERE StaffUsername=?', (uid,))
+                data = db.fetchone()
+                mutex.release()
+                return data
+                
+        elif role == "staff":
+            mutex.aquire()
+            db.execute('SELECT a.Username, a.Email, p.DateOfBirth, p.conditions, p.StaffUsername FROM patient p,account a WHERE p.PatientUsername = a.Username AND a.Username=?', (uid,))
+            patient=db.fetchone();
+            mutex.release()
+            if patient[4]==user:
+                return patient;
+        return "not allowed"
+        
+    return jsonify({"message": "Invalid request"}), 400
 
 @app.route('/api/v1/user/{uid}', methods=["UPDATE"])
 @login_required
@@ -310,30 +310,30 @@ def update_user(uid):
         Doctors will only be able to modify the patients that are assigned to them
         Regulator cannot? modify anything
     """
-	data = request.get_json()
-	if "session" in data:
-		user = data["session"]["uid"]
-		mutex.aquire()
-		db.execute('SELECT Role FROM account WHERE Username=?', (user,))
-		role=db.fetchone()[0]
-		mutex.release()
-		
-		#get own data/regulator data (not formatted)
-		if(user==uid):
-			#db.execute('UPDATE account SET ... WHERE Username=?', (uid,))
-			if role == "patient":
-				#db.execute('UPDATE patient SET ... WHERE PatientUsername=?', (uid,))
-				return "some data"
-					
-			elif role == "staff":
-				#db.execute('UPDATE staff SET ... WHERE StaffUsername=?', (uid,))
-				return "some data":
-				
-			else
-				return "some data"
-		else:
-			return "not allowed"
-		
+    data = request.get_json()
+    if "session" in data:
+        user = data["session"]["uid"]
+        mutex.aquire()
+        db.execute('SELECT Role FROM account WHERE Username=?', (user,))
+        role=db.fetchone()[0]
+        mutex.release()
+        
+        #get own data/regulator data (not formatted)
+        if(user==uid):
+            #db.execute('UPDATE account SET ... WHERE Username=?', (uid,))
+            if role == "patient":
+                #db.execute('UPDATE patient SET ... WHERE PatientUsername=?', (uid,))
+                return "some data"
+                    
+            elif role == "staff":
+                #db.execute('UPDATE staff SET ... WHERE StaffUsername=?', (uid,))
+                return "some data"
+                
+            else:
+                return "some data"
+        else:
+            return "not allowed"
+        
     return jsonify({"message": "Invalid request"}), 400
 
 @app.route('/api/v1/user/{uid}', methods=["DELETE"])
@@ -346,25 +346,25 @@ def delete_user(uid):
         Regulator cannot delete anyone.
     """
     data = request.get_json()
-	if "session" in data:
-	
-		user = data["session"]["uid"]
-		
-		#get own data/regulator data (not formatted)
-		if(user==uid):
-			db.execute('DELETE FROM patient WHERE PatientUsername=?', (uid,))
-					
-			db.execute('DELETE FROM staff WHERE StaffUsername=?', (uid,))
-				
-			db.execute('DELETE FROM session WHERE Username=?', (uid,))
-				
-			db.execute('DELETE FROM account WHERE Username=?', (uid,))
-			return "some data"
-		else:
-			return "not allowed"
-		
-		
-	return jsonify({"message": "Invalid request"}), 400
+    if "session" in data:
+    
+        user = data["session"]["uid"]
+        
+        #get own data/regulator data (not formatted)
+        if(user==uid):
+            db.execute('DELETE FROM patient WHERE PatientUsername=?', (uid,))
+                    
+            db.execute('DELETE FROM staff WHERE StaffUsername=?', (uid,))
+                
+            db.execute('DELETE FROM session WHERE Username=?', (uid,))
+                
+            db.execute('DELETE FROM account WHERE Username=?', (uid,))
+            return "some data"
+        else:
+            return "not allowed"
+        
+        
+    return jsonify({"message": "Invalid request"}), 400
 
 @app.route('/api/v1/audit', methods=["GET"])
 @login_required
@@ -373,21 +373,21 @@ def get_audits():
         Only regulator has access to this.
     """
     data = request.get_json()
-	if "session" in data:
-	
-		user = data["session"]["uid"]
-		mutex.aquire()
-		db.execute('SELECT Role FROM account WHERE Username=?', (user,))
-		role=db.fetchone()[0]
-		mutex.release()
-		
-		#get own data/regulator data (not formatted)
-		if(role == "Regulator"):
-			 return "some_data"
-		
-		return "not allowed"
-		
-	return jsonify({"message": "Invalid request"}), 400
+    if "session" in data:
+    
+        user = data["session"]["uid"]
+        mutex.aquire()
+        db.execute('SELECT Role FROM account WHERE Username=?', (user,))
+        role=db.fetchone()[0]
+        mutex.release()
+        
+        #get own data/regulator data (not formatted)
+        if(role == "Regulator"):
+             return "some_data"
+        
+        return "not allowed"
+        
+    return jsonify({"message": "Invalid request"}), 400
 
 @app.route('/api/v1/logout', methods=["GET"])
 @login_required
@@ -413,7 +413,7 @@ def login_handler():
                 response = {}
                 response["message"] = "Account not verified!"
                 return jsonify(response), 400
-			
+            
             if sessionExists(uname, request.remote_addr):
                     return jsonify({'message': 'Account already logged in.'}), 200 #session already verified
             # TODO: Need some session data to send back to the user.
