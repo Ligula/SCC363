@@ -1,18 +1,21 @@
 import requests, json, hashlib, sys, os
 import pass_validate
+import certifi
+import urllib3
 
 #Problems:
   # All requests need to have verify=False until certificate verification is added
 
+urllib3.disable_warnings(urllib3.exceptions.SecurityWarning)
 
-serverAddress = 'https://127.0.0.1'
+serverAddress = 'https://localhost'
 serverPort = '5000'
 fullAddress = serverAddress + ':' + serverPort
 
 
-
 def isServerAlive():
-  r = requests.get(fullAddress + '/alive', verify=False)
+  r = requests.get(fullAddress + '/alive', verify="cert.pem")
+
   if r.text == "Alive":
     print("\nServer Online")
   return True
@@ -29,7 +32,7 @@ def login():
   jsonData = json.dumps(data)
   headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
 
-  r = requests.post(fullAddress + '/api/v1/login', data=jsonData, headers=headers, verify=False)
+  r = requests.post(fullAddress + '/api/v1/login', data=jsonData, headers=headers, verify="cert.pem")
   print(r.content)
   if(r.status_code == 200):
     print("Logged iiiiin biiiiitcheeeees")
@@ -55,8 +58,8 @@ def register():
   }
   jsonData = json.dumps(data)
   headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
-
-  r = requests.post(fullAddress + '/api/v1/register', data=jsonData, headers=headers, verify=False)
+  print("test")
+  r = requests.post(fullAddress + '/api/v1/register', data=jsonData, headers=headers, verify="cert.pem")
   print(r.content)
   print(r.status_code)
 
@@ -73,7 +76,7 @@ def otc():
   jsonData = json.dumps(data)
   headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
 
-  r = requests.post(fullAddress + '/api/v1/otc', data=jsonData, headers=headers, verify=False)
+  r = requests.post(fullAddress + '/api/v1/otc', data=jsonData, headers=headers, verify="cert.pem")
   print(r.content)
   print(r.status_code)
 
@@ -94,7 +97,7 @@ if __name__ == "__main__":
     # login()
     #otc()
     #register()
-    #requests.get(fullAddress + '/test', verify=False)
+    #requests.get(fullAddress + '/test', verify="cert.pem")
   else:
     print("Fuck")
 
