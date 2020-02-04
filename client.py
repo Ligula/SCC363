@@ -41,7 +41,7 @@ def register():
   dob = input("Date of birth i.e. DD/MM/YYYY: ")
   username = input('Username: ')
   password = input('Password: ')
-  role = input('Role: ')
+  role = input('Role (patient, doctor, regulator): ').lower()
 
   while pass_validate.pass_eval(password, username, dob) != True:
     password = input("\nPassword: ")
@@ -51,7 +51,7 @@ def register():
     "email": email,
     "username": username,
     "password": password,
-    "role", role
+    "role": role
   }
   jsonData = json.dumps(data)
   headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
