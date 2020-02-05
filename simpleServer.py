@@ -467,11 +467,11 @@ def login_handler():
             insertSession(request.remote_addr, uname, datetime.fromtimestamp(time.time()), code_str)
             SendEmail(getEmail(uname), 'SCC-363 OTC', 'Login OTC: ' + code_str)
             
-            response = {}
-            response["message"] = "Password correct!"
-            response["session"] = {}
-            response["session"]["uid"] = uname
-            return jsonify(response), 200
+            # response = {}
+            # response["message"] = "Password correct!"
+            # response["session"] = {}
+            # response["session"]["uid"] = uname
+            return Response(status=200)
             
     return Response("{'message': 'Password Incorrect'}", status=400)
 

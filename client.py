@@ -34,10 +34,11 @@ def login():
   headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
 
   r = requests.post(fullAddress + '/api/v1/login', data=jsonData, headers=headers, verify="cert.pem")
-  print(r.content)
+
   if(r.status_code == 200):
-    print("Logged iiiiin biiiiitcheeeees")
-    otc()
+    otc(login)
+  else:
+    return False
 
 
 def register():
@@ -63,10 +64,8 @@ def register():
   print(Fore.GREEN + "" + str(r.content.decode('UTF-8')) + Fore.WHITE + "")
 
 
-def otc():
-  user = input('Username: ')
+def otc(user):
   code = input('Code: ')
-
   data = {
     "session": {
       "uid": user
@@ -74,6 +73,7 @@ def otc():
     "otc": code
   }
   jsonData = json.dumps(data)
+  print(jsonData)
   headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
 
   r = requests.post(fullAddress + '/api/v1/otc', data=jsonData, headers=headers, verify="cert.pem")
@@ -88,7 +88,8 @@ def login_menu():
     choice = input("1) Login\n2) Register\n> ")
   
   if choice == "1":
-    login()
+    if login() == False:
+      login_menu()
   elif choice == "2":
     register()
     login_menu()
