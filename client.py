@@ -2,6 +2,7 @@ import requests, json, hashlib, sys, os
 import pass_validate
 import certifi
 import urllib3
+from colorama import Fore, Style
 
 #Problems:
   # All requests need to have verify=False until certificate verification is added
@@ -58,10 +59,9 @@ def register():
   }
   jsonData = json.dumps(data)
   headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
-  print("test")
   r = requests.post(fullAddress + '/api/v1/register', data=jsonData, headers=headers, verify="cert.pem")
-  print(r.content)
-  print(r.status_code)
+  print(Fore.GREEN + "" + str(r.content.decode('UTF-8')) + Fore.WHITE + "")
+
 
 def otc():
   user = input('Username: ')
@@ -80,19 +80,23 @@ def otc():
   print(r.content)
   print(r.status_code)
 
+def login_menu():
+  choice = input("\n1) Login\n2) Register\n> ")
+
+  while choice != "1" and choice != "2":
+    print("\nInvalid input, try again!")
+    choice = input("1) Login\n2) Register\n> ")
+  
+  if choice == "1":
+    login()
+  elif choice == "2":
+    register()
+    login_menu()
+
 if __name__ == "__main__":
   if isServerAlive() == True:
-
-    choice = input("\n1) Login\n2) Register\n> ")
-
-    while choice != "1" and choice != "2":
-      print("\nInvalid input, try again!")
-      choice = input("1) Login\n2) Register\n> ")
-    
-    if choice == "1":
-      login()
-    elif choice == "2":
-      register()
+    login_menu()
+   
 
     # login()
     #otc()
