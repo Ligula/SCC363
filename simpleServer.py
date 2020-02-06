@@ -306,10 +306,15 @@ def read_user(uid):
         #get own data/regulator data (not formatted)
         if(user==uid or role == REGULATOR):
             mutex.acquire()
-            db.execute('SELECT * FROM account WHERE Username=?', (uid,))
+            db.execute('SELECT Username, Email, Role, Verified FROM account WHERE Username=?', (uid,))
             data = db.fetchone()
             mutex.release()
-            return data, 200
+            response = {}
+            response["username"] = data[0]
+            response["email"] = data[1]
+            response["role"] = data[2]
+            response["validated"] = data[3]
+            return jsonify(response), 200
         
         if role == PATIENT:
             mutex.acquire()
@@ -321,7 +326,7 @@ def read_user(uid):
                 db.execute('SELECT StaffUsername, Position FROM staff WHERE StaffUsername=?', (uid,))
                 data = db.fetchone()
                 mutex.release()
-                return data, 200
+                return jsonify(data), 200
                 
         elif role == DOCTOR:
             mutex.acquire()
@@ -329,7 +334,7 @@ def read_user(uid):
             patient=db.fetchone()
             mutex.release()
             if patient[4]==user:
-                return patient, 200
+                return jsonify(patient), 200
         auditor.pushEvent("read_user: %s" % uid, user, request.remote_addr, "Operation denied, invalid role %s" % role)
         return jsonify({"message": "You cannot do this operation"}), 400
         
