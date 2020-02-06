@@ -10,10 +10,14 @@ import time
 from datetime import datetime, timedelta
 from colorama import Fore, Style
 
+from auditor import Auditor
+
 mutex = Lock()
 
 conn = sqlite3.connect('med.db', check_same_thread=False, detect_types=sqlite3.PARSE_DECLTYPES)
 db = conn.cursor()
+
+auditor = Auditor("audit.log")
 
 db.execute("""CREATE TABLE IF NOT EXISTS account (
 Username VARCHAR(255) PRIMARY KEY NOT NULL,
@@ -296,8 +300,9 @@ def read_user(uid):
         mutex.release()
         
         if(userExists(uid)==False):
+            auditor.pushEvent("read_user: %s, doesn't exist" % uid, user, request.remote_addr, "")
             return jsonify({"message": "User doesn't exist"}), 400
-        
+        auditor.pushEvent("read_user: %s" % uid, user, request.remote_addr, "")
         #get own data/regulator data (not formatted)
         if(user==uid or role == REGULATOR):
             mutex.acquire()
@@ -325,6 +330,7 @@ def read_user(uid):
             mutex.release()
             if patient[4]==user:
                 return patient, 200
+        auditor.pushEvent("read_user: %s" % uid, user, request.remote_addr, "Operation denied, invalid role %s" % role)
         return jsonify({"message": "You cannot do this operation"}), 400
         
     return jsonify({"message": "Invalid request"}), 400
@@ -367,6 +373,8 @@ def update_user(uid):
             if "newPassword" in data and "oldPassword" in data:
                 if verify_password(data["oldPassword"],getHash(uid)):
                     updatePassword(uid,data["newPassword"])
+                    
+            auditor.pushEvent("update_user", user, request.remote_addr, "Updated account details: %s" % uid)
             return jsonify({"message": "Personal details updated"}), 200
         else:
             mutex.acquire()
@@ -391,7 +399,10 @@ def update_user(uid):
                     
                     db.execute('UPDATE patient SET ? WHERE PatientUsername=?', (updateString,uid))
                     conn.commit()
+                    auditor.pushEvent("update_user: ", user, request.remote_addr, "Updated account details: %s" % uid)
                     return jsonify({"message": uid+" details updated"}), 200
+            
+            auditor.pushEvent("update_user", user, request.remote_addr, "Access denied to change: %s" % uid)
             return jsonify({"message": "You cannot change this persons details"}), 400
         
     return jsonify({"message": "Invalid request"}), 400
@@ -421,8 +432,10 @@ def delete_user(uid):
                 
             db.execute('DELETE FROM account WHERE Username=?', (uid,))
             conn.commit()
+            auditor.pushEvent("delete_user: %s" % uid, user, request.remote_addr, "")
             return jsonify({"message": "You're account has been removed."}), 200
         else:
+            auditor.pushEvent("delete_user: %s" % uid, user, request.remote_addr, "Tried to delete another persons account")
             return jsonify({"message": "You cannot delete someone else"}), 400
         
         
@@ -436,7 +449,6 @@ def get_audits():
     """
     data = request.get_json()
     if "session" in data:
-    
         user = data["session"]["uid"]
         mutex.acquire()
         db.execute('SELECT Role FROM account WHERE Username=?', (user,))
@@ -445,9 +457,10 @@ def get_audits():
         
         #get own data/regulator data (not formatted)
         if(role == REGULATOR):
-             return "some_data"
-        
-        return "not allowed"
+            auditor.pushEvent("read_audit", user, request.remote_addr, "Access granted")
+            return jsonify(auditor.readLogs()), 200
+        auditor.pushEvent("read_audit", user, request.remote_addr, "Access denied")
+        return "not allowed", 400
         
     return jsonify({"message": "Invalid request"}), 400
 
@@ -456,8 +469,10 @@ def get_audits():
 def logout_handler():
     data = request.get_json()
     if deleteSession(data["session"]["uid"], request.remote_addr):
+        auditor.pushEvent("logout", data["session"]["uid"], request.remote_addr, "")
         return jsonify({"message": "You've been logged out"}), 200
     else:
+        auditor.pushEvent("logout", data["session"]["uid"], request.remote_addr, "No session")
         return jsonify({"message": "No session to logout of."}), 200
 
 @app.route('/api/v1/login', methods=['POST'])
@@ -466,6 +481,7 @@ def login_handler():
     uname = data["username"]
     pwd = data["password"]
     if userExists(uname) == False:
+        auditor.pushEvent("login", uname, request.remote_addr, "Account not found")
         return Response("{'message' : 'User doesn't exists'}", status=404)
     else:
         # TODO: check password expiry date.
@@ -474,9 +490,11 @@ def login_handler():
             if accountVerified(uname) == False:
                 response = {}
                 response["message"] = "Account not verified!"
+                auditor.pushEvent("login", uname, request.remote_addr, "Account not verified")
                 return jsonify(response), 400
             
             if sessionExists(uname, request.remote_addr):
+                    auditor.pushEvent("login", uname, request.remote_addr, "Session already active")
                     return jsonify({'message': 'Account already logged in.'}), 200 #session already verified
             # TODO: Need some session data to send back to the user.
             code = random.randrange(1, 10**6)
@@ -485,9 +503,11 @@ def login_handler():
             # Start session for the user, needs to be validated first though.
             insertSession(request.remote_addr, uname, datetime.now(), code_str)
             SendEmail(getEmail(uname), 'SCC-363 OTC', 'Login OTC: ' + code_str)
+            auditor.pushEvent("login", uname, request.remote_addr, "Sent OTC")
             
-            return Response("{'message': 'Registration Success!'}", status=200)
-            
+            return Response("{'message': 'Login Success!'}", status=200)
+    
+    auditor.pushEvent("login", uname, request.remote_addr, "Invalid password")
     return Response("{'message': 'Password Incorrect'}", status=400)
 
 @app.route('/api/v1/otc', methods=['POST'])
@@ -508,6 +528,7 @@ def otc_handler():
     if userExists(user):
         if validateSession(user, request.remote_addr, code) == True or (sessionExists(user, request.remote_addr) and sessionValid(user, request.remote_addr)):
             # Provide user with their role information.
+            auditor.pushEvent("otc", user, request.remote_addr, "")
             resp = {}
             resp["message"] = "OTC Correct"
             resp["session"] = {}
@@ -516,8 +537,10 @@ def otc_handler():
 
             return jsonify(resp), 200
         else:
+            auditor.pushEvent("otc", user, request.remote_addr, "Incorrect OTC")
             return Response("{'message': 'OTC incorrect!'}", status=400)
     else:
+        auditor.pushEvent("login", user, request.remote_addr, "No session for OTC")
         return Response("{'message': 'Invalid session'}", status=400)
     return Response("{'message': 'Shouldn't get to here. Internal failure.'}", status=500)
 
@@ -525,7 +548,9 @@ def otc_handler():
 def verify_handler():
     vid = request.args.get('verifyId')
     if verifyAccount(vid) == True:
+        auditor.pushEvent("verify", vid, request.remote_addr, "")
         return Response("{'message': 'Your account has been verified, you can now login.'}")
+    auditor.pushEvent("verify", vid, request.remote_addr, "Unknown verify id")
     return Response("{'message': 'Unknown verify id.'}"), 404
 
 @app.route('/api/v1/register', methods=['POST'])
@@ -539,15 +564,18 @@ def register_handler():
     saltandhash = create_password(pwd)
 
     if userExists(uname):
+        auditor.pushEvent("register", uname, request.remote_addr, "Name taken")
         return Response("{'message':'username taken'}", status=400)
     else:
         vid = generate_random_id()
         # Send link to verify account.
         # 30 day password expiry
         if createUser(uname, saltandhash, email, role, time.time() + PASSWORD_EXPIRE_TIME, vid) == False:
+            auditor.pushEvent("register", uname, request.remote_addr, "Name taken")
             return Response("{'message': 'Account name taken!'}", status=200)
         verify_url = "https://localhost:5000" + url_for('verify_handler')+"?verifyId=" + vid
         SendEmail(email, 'SCC-363 Registration', ('Hi %s, welcome to the system! \n Please verify your email at: %s' % (uname, verify_url)))
+        auditor.pushEvent("register", uname, request.remote_addr, "")
     return Response("User successfully registered, goto your emails to verify your account.", status=200)
 
 

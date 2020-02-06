@@ -36,6 +36,9 @@ class Auditor:
         entry = AuditEntry(eventTime, operation, userId, ipAddr, reason)
         self.handle.seek(0, os.SEEK_END)
         pickle.dump(entry, self.handle)
+        # Ensure log is pushed to disk properly, not buffered.
+        self.handle.flush()
+        os.fsync(self.handle)
         self.mutex.release()
 
     def readLogs(self):
