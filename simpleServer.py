@@ -7,12 +7,12 @@ from email.message import EmailMessage
 from functools import wraps
 from threading import Lock
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from colorama import Fore, Style
 
 mutex = Lock()
 
-conn = sqlite3.connect(':memory:', check_same_thread=False, detect_types=sqlite3.PARSE_DECLTYPES)
+conn = sqlite3.connect('med.db', check_same_thread=False, detect_types=sqlite3.PARSE_DECLTYPES)
 db = conn.cursor()
 
 db.execute("""CREATE TABLE IF NOT EXISTS account (
@@ -20,7 +20,7 @@ Username VARCHAR(255) PRIMARY KEY NOT NULL,
 Password VARCHAR(128) NOT NULL,
 Email VARCHAR(255) NOT NULL,
 Role VARCHAR(255),
-PWExpiryDate DATETIME,
+PWExpiryDate TIMESTAMP,
 VerifyID INT,
 Verified BOOLEAN);""")
 db.execute("""CREATE TABLE IF NOT EXISTS staff (
@@ -33,7 +33,7 @@ db.execute("""CREATE TABLE IF NOT EXISTS session (
 SessionID INT,
 IPAddress VARCHAR(255),
 Username VARCHAR(255),
-StartDate DATETIME,
+StartDate TIMESTAMP,
 AuthCode VARCHAR(6),
 Valid BOOL,
 FOREIGN KEY (Username) REFERENCES account(username));""")
@@ -44,6 +44,7 @@ PatientUsername VARCHAR(255),
 StaffUsername VARCHAR(255), 
 FOREIGN KEY (PatientUsername) REFERENCES account(username),
 FOREIGN KEY (StaffUsername) REFERENCES staff(StaffUsername));""")
+conn.commit()
 
 db.execute("SELECT name FROM sqlite_master WHERE type='table';")
 print(db.fetchall())
@@ -60,6 +61,7 @@ def getPasswordExpiryDate(userName):
 def verifyAccount(verifyId):
     mutex.acquire()
     db.execute("UPDATE account SET Verified=? WHERE VerifyId=?", (True, verifyId,))
+    conn.commit()
     rows = db.rowcount
     mutex.release()
     return rows > 0
@@ -67,6 +69,7 @@ def verifyAccount(verifyId):
 def addOTC(code, userName):
     mutex.acquire()
     db.execute("UPDATE account SET AuthCode=? WHERE username=?", (code, userName,))
+    conn.commit()
     rows = db.rowcount
     mutex.release()
     return rows > 0
@@ -74,6 +77,7 @@ def addOTC(code, userName):
 def invalidateOTC(userName):
     mutex.acquire()
     db.execute("UPDATE account SET AuthCode=NULL WHERE userName=?", (userName,))
+    conn.commit()
     rows = db.rowcount
     mutex.release()
     return rows > 0
@@ -81,19 +85,18 @@ def invalidateOTC(userName):
 def updatePatient(patientUsername, conditions):
     mutex.acquire()
     db.execute("UPDATE patient SET conditions=? WHERE PatientUsername=?", (conditions, patientUsername,))
-    db.commit()
+    conn.commit()
     rows = db.rowcount
     mutex.release()
     return rows > 0
 
 def deleteUser(username):
     mutex.acquire()
-    # TODO: this will need to also remove info from patient table etc.
     db.execute("DELETE FROM staff WHERE StaffUsername=?", (username,))
     db.execute("DELETE FROM patient WHERE PatientUsername=?", (username,))
     db.execute("DELETE FROM session WHERE username=?", (username,))
     db.execute("DELETE FROM account WHERE username=?", (username,))
-    db.commit()
+    conn.commit()
     rows = db.rowcount
     mutex.release()
     return rows > 0
@@ -101,7 +104,7 @@ def deleteUser(username):
 def updateEmail(username, newEmail):
     mutex.acquire()
     db.execute("UPDATE account SET Email=? WHERE username=?", (newEmail, username,))
-    db.commit()
+    conn.commit()
     rows = db.rowcount
     mutex.release()
     return rows > 0
@@ -109,6 +112,7 @@ def updateEmail(username, newEmail):
 def updatePassword(username, newPass):
     mutex.acquire()
     db.execute("UPDATE account SET HPassword=? WHERE username=?", (newPass, username,))
+    conn.commit()
     rows = db.rowcount
     mutex.release()
     return rows > 0
@@ -116,6 +120,7 @@ def updatePassword(username, newPass):
 def insertSession(ipAddress, username, startTime, authCode):
     mutex.acquire()
     db.execute("INSERT INTO session (IPAddress, Username, StartDate, AuthCode, Valid) VALUES (?, ?, ?, ?, ?)", (ipAddress, username, startTime, authCode, False))
+    conn.commit()
     rows = db.rowcount
     mutex.release()
     return rows > 0
@@ -123,6 +128,7 @@ def insertSession(ipAddress, username, startTime, authCode):
 def createUser(username, hpass, email, role, pwExpiry, verifyId):
     mutex.acquire()
     db.execute("INSERT INTO account (Username, Password, Email, Role, PWExpiryDate, VerifyId, Verified) VALUES (?, ?, ?, ?, ?, ?, ?)", (username, hpass, email, role, pwExpiry, verifyId, False),)
+    conn.commit()
     rows = db.rowcount
     mutex.release()
     return rows > 0
@@ -131,7 +137,6 @@ def userExists(username):
     mutex.acquire()
     db.execute("SELECT Username FROM account WHERE Username=?", (username,))
     rows = db.fetchall()
-    print(rows)
     mutex.release()
     return len(rows) > 0
 
@@ -174,16 +179,18 @@ def getEmail(username):
 def validateSession(uname, ipAddr, otc):
     mutex.acquire()
     db.execute("UPDATE session SET Valid=True WHERE Username=? AND AuthCode=? AND IPAddress=?", (uname, otc, ipAddr,))
+    conn.commit()
     rows = db.rowcount
     mutex.release()
     return rows > 0
 
 def getSessionStartTime(uname, ipAddr):
     mutex.acquire()
-    db.execute("SELECT StartTime FROM session WHERE Username=? AND IPAddress=?", (uname, ipAddr,))
+    db.execute('SELECT StartDate FROM session WHERE Username=? AND IPAddress=?', (uname, ipAddr,))
     rows = db.fetchall()
     mutex.release()
     if len(rows) > 0:
+        print(type(rows[0][0]))
         return rows[0][0]
     return None
 
@@ -199,9 +206,19 @@ def sessionValid(uname, ipAddr):
 def deleteSession(uname, ipAddr):
     mutex.acquire()
     db.execute("DELETE FROM session WHERE Username=? AND IPAddress=?", (uname, ipAddr,))
+    conn.commit()
     rows = db.rowcount
     mutex.release()
     return rows > 0
+
+def getRole(uname):
+    mutex.acquire()
+    db.execute("SELECT Role FROM account WHERE username=?", (uname,))
+    rows = db.fetchall()
+    mutex.release()
+    if len(rows) > 0:
+        return rows[0][0]
+    return None
 
 context = ('certificate.pem', 'key.pem')
 
@@ -244,7 +261,7 @@ def login_required(f):
             user = data["session"]["uid"]
             # Need to check session is valid too (OTC has been entered)
             if sessionExists(user, request.remote_addr) and sessionValid(user, request.remote_addr):
-                if datetime.timestamp(getSessionStartTime(user, request.remote_addr)) + SESSION_TIME < time.time():
+                if getSessionStartTime(user, request.remote_addr) + timedelta(seconds=SESSION_TIME) < datetime.now():
                     deleteSession(user, request.remote_addr)
                     return jsonify({"message" : "Session expired, log back in."})
                 return f(*args, **kwargs)
@@ -259,7 +276,7 @@ def login_required(f):
 def alive():
     return 'Alive'
 
-@app.route('/api/v1/user/{uid}')
+@app.route('/api/v1/user/<uid>', methods=["GET"])
 @login_required
 def read_user(uid):
     """
@@ -312,7 +329,7 @@ def read_user(uid):
         
     return jsonify({"message": "Invalid request"}), 400
 
-@app.route('/api/v1/user/{uid}', methods=["UPDATE"])
+@app.route('/api/v1/user/<uid>', methods=["UPDATE"])
 @login_required
 def update_user(uid):
     """
@@ -373,12 +390,13 @@ def update_user(uid):
                         updateString+="StaffUsername = \""+data["staffUsername"]+"\""
                     
                     db.execute('UPDATE patient SET ? WHERE PatientUsername=?', (updateString,uid))
+                    conn.commit()
                     return jsonify({"message": uid+" details updated"}), 200
             return jsonify({"message": "You cannot change this persons details"}), 400
         
     return jsonify({"message": "Invalid request"}), 400
 
-@app.route('/api/v1/user/{uid}', methods=["DELETE"])
+@app.route('/api/v1/user/<uid>', methods=["DELETE"])
 @login_required
 def delete_user(uid):
     """
@@ -402,6 +420,7 @@ def delete_user(uid):
             db.execute('DELETE FROM session WHERE Username=?', (uid,))
                 
             db.execute('DELETE FROM account WHERE Username=?', (uid,))
+            conn.commit()
             return jsonify({"message": "You're account has been removed."}), 200
         else:
             return jsonify({"message": "You cannot delete someone else"}), 400
@@ -464,14 +483,10 @@ def login_handler():
             code_str = '{:06}'.format(code)
             # Code from 0000-9999, send to user's email.
             # Start session for the user, needs to be validated first though.
-            insertSession(request.remote_addr, uname, datetime.fromtimestamp(time.time()), code_str)
+            insertSession(request.remote_addr, uname, datetime.now(), code_str)
             SendEmail(getEmail(uname), 'SCC-363 OTC', 'Login OTC: ' + code_str)
             
-            # response = {}
-            # response["message"] = "Password correct!"
-            # response["session"] = {}
-            # response["session"]["uid"] = uname
-            return Response(status=200)
+            return Response("{'message': 'Registration Success!'}", status=200)
             
     return Response("{'message': 'Password Incorrect'}", status=400)
 
@@ -491,13 +506,17 @@ def otc_handler():
     user = session["uid"]
     # Does the user exist?
     if userExists(user):
-        if validateSession(user, request.remote_addr, code) == True:
-            # TODO: Need to do some other stuff in here too for authenticating user.
-            # Allow them into the system since the code is correct.
-            # Session is set to valid, allowing users access to endpoints.
-            return Response("{'message': 'OTC correct!'}", status=200)
+        if validateSession(user, request.remote_addr, code) == True or (sessionExists(user, request.remote_addr) and sessionValid(user, request.remote_addr)):
+            # Provide user with their role information.
+            resp = {}
+            resp["message"] = "OTC Correct"
+            resp["session"] = {}
+            resp["session"]["role"] = getRole(user)
+            resp["session"]["uid"] = user
+
+            return jsonify(resp), 200
         else:
-            return Response("{'message': 'OTC incorrect!'}", status=200)
+            return Response("{'message': 'OTC incorrect!'}", status=400)
     else:
         return Response("{'message': 'Invalid session'}", status=400)
     return Response("{'message': 'Shouldn't get to here. Internal failure.'}", status=500)
