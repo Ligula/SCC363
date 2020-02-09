@@ -14,6 +14,7 @@ serverPort = '5000'
 fullAddress = serverAddress + ':' + serverPort
 
 
+
 def isServerAlive():
   r = requests.get(fullAddress + '/alive', verify="cert.pem")
 
@@ -112,9 +113,27 @@ def patientMenu(uid):
     print(r.status_code)
     print(r.content)
   elif option == 'B':
-    #newpwd = input("Enter new password: ")
+    oldpwd = input("\nCurrent Password:")
+    newpwd = input("\nPassword: ")
+    while pass_validate.pass_eval_nousr(newpwd) != True:
+      newpwd = input("\nPassword: ")
     #print("Enter 'cancel' to cancel and return to the menu.")
-    #newpwdvalid = input("Re-enter new password to confirm: ")
+    newpwdvalid = input("Re-enter new password to confirm: ")
+    if newpwd == newpwdvalid:
+      data = {
+        "session": {
+          "uid": uid
+        },
+        "oldPassword": oldpwd,
+        "newPassword": newpwd
+      }
+      jsonData = json.dumps(data)
+      headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
+      r = requests.post(fullAddress + '/api/v1/user/' + uid, data=jsonData, headers=headers, verify="cert.pem")
+
+      if r.status_code == 200:
+        print("Password updated successfully")
+      print(r)
     #if newpwd == newpwdvalid and
     #if validation requirements are met for new password
     #print("Password updated. Patient has been notified.")
@@ -251,22 +270,3 @@ if __name__ == "__main__":
     #requests.get(fullAddress + '/test', verify="cert.pem")
   else:
     print("Fuck")
-
-
-  '''
-  salt = os.urandom(32)
-
-
-  data = {
-    "id": "empty",
-    "username": login,
-    "password": password
-  }
-
-  hashword = hashlib.sha3_256(password.encode('utf-8')).hexdigest()
-  print(hashword)
-
-  jsonData = json.dumps(data)
-
-  print("Well done!")
-  '''
