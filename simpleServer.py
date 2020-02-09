@@ -340,7 +340,7 @@ def read_user(uid):
         
     return jsonify({"message": "Invalid request"}), 400
 
-@app.route('/api/v1/user/<uid>', methods=["UPDATE"])
+@app.route('/api/v1/user/<uid>', methods=["POST"])
 @login_required
 def update_user(uid):
     """
@@ -393,7 +393,7 @@ def update_user(uid):
             if(subjectRole==PATIENT and role==DOCTOR):
                 mutex.acquire()
                 db.execute('SELECT StaffUsername FROM patient WHERE PatientUsername = ?', (uid,))
-                patient=db.fetchone();
+                patient=db.fetchone()
                 mutex.release()
                 if patient[0]==user:
                     updateString=""
