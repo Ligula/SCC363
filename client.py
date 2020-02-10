@@ -170,6 +170,22 @@ def regulatorMenu(uid):
   print("Press B to access Doctor data")
   print("Press C to access Staff data")
   print("Press D to assign Doctors to patients")
+  option = 'E'
+
+  while option != 'A' and option != 'B' and option != 'C' and option != 'D':
+    option = input("Choice: ")
+  if option == 'A':
+    print("Audit Logs")
+
+  if option == 'B':
+    print("Doctor Data")
+
+  if option == 'C':
+    print("Staff data")
+
+  if option == 'D':
+    print("Assign Doctors to Patients")
+
 
 def doctorMenu(uid):
   print("Your role is " + role)

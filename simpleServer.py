@@ -242,7 +242,6 @@ app.secret_key = 'some_secret_key_that_needs_to_be_really_long'
 def create_password(password):
     salt = b64encode(os.urandom(16))
     both = password + str(salt)
-    print(both)
     # requires passlib & argon2_cffi / argon2pure
     # Passlib uses argon2i
     # More than 2 rounds is recommended, too many takes a long time...
@@ -257,13 +256,6 @@ def verify_password(password, hashwd, username):
     mutex.release()
     if len(rows) > 0:
         compPwd = password + str(rows[0][1])
-        '''
-        print(rows)
-        print(rows[0][0])
-        print("ONE")
-        print(rows[0][1])
-        print("TWO")
-        '''
     return argon2.verify(compPwd, hashwd)
 
 def generate_random_id():
