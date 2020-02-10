@@ -133,18 +133,6 @@ def patientMenu(uid):
 
       if r.status_code == 200:
         print("Password updated successfully")
-      print(r)
-    #if newpwd == newpwdvalid and
-    #if validation requirements are met for new password
-    #print("Password updated. Patient has been notified.")
-    #if validation requirements for new password are not met
-    #elif print("Please enter a new password that meets the validation criteria [INSERT CRITERIA HERE]")
-    #newpwd = input("Enter new password: ")
-    #print("Enter 'cancel' to cancel and return to the menu.")
-    #newpwdvalid = input("Re-enter new password to confirm: ")
-    #if newpwd == newpwdvalid and
-    #print("Password updated. Patient has been notified.")
-    print("Do something...")
   elif option == 'C':
     newEmail = input("\nNew Email: ")
     if newpwd == newpwdvalid:
@@ -161,22 +149,21 @@ def patientMenu(uid):
       if r.status_code == 200:
         print("Email updated successfully")
       print(r.message)
-    #newemail = input("Enter new email: ")
-    #print("Enter 'cancel' to cancel and return to the menu.")
-    #newemailvalid = input("Re-enter new email to confirm: ")
-    #if newemail == newemailvalid and
-    #if validation requirements are met for new email
-    #print("Email updated. Patient has been notified.")
-    #if validation requirements for new email are not met
-    #elif print("Please enter a new email that meets the validation criteria [INSERT CRITERIA HERE]")
-    #newemail = input("Enter new email: ")
-    #print("Enter 'cancel' to cancel and return to the menu.")
-    #newemailvalid = input("Re-enter new email to confirm: ")
-    #if newemail == newemailvalid and
-    #print("Email updated. Patient has been notified.")
-    print("Do something...")
   elif option == 'D':
-    print("Do something...")
+    data = {
+      "session": {
+        "uid": uid
+      }
+    }
+    jsonData = json.dumps(data)
+    headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
+    r = requests.delete(fullAddress + '/api/v1/user/' + uid, data=jsonData, headers=headers, verify="cert.pem")
+
+    if r.status_code == 200:
+      print("User deleted succesfully")
+
+    #debug
+    print(r.text)
 
 def regulatorMenu(uid):
   print("Press A to access audit logs")

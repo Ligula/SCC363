@@ -439,7 +439,7 @@ def delete_user(uid):
             db.execute('DELETE FROM account WHERE Username=?', (uid,))
             conn.commit()
             auditor.pushEvent("delete_user: %s" % uid, user, request.remote_addr, "")
-            return jsonify({"message": "You're account has been removed."}), 200
+            return jsonify({"message": "Your account has been removed."}), 200
         else:
             auditor.pushEvent("delete_user: %s" % uid, user, request.remote_addr, "Tried to delete another persons account")
             return jsonify({"message": "You cannot delete someone else"}), 400
