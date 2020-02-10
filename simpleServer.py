@@ -173,6 +173,24 @@ def sessionExists(username, ip):
         return rows[0][0] # Row 0, column 0
     return None
 
+def listSessions():
+    mutex.acquire()
+    db.execute("SELECT SessionID, IPAddress, Username, StartDate, Valid FROM session")
+    rows = db.fetchall()
+    mutex.release()
+    result = []
+    for row in rows:
+        # Only list non-timedout sessions
+        if row[3] + timedelta(seconds=SESSION_TIME) >= datetime.now():
+            r = {
+                'ip' : row[1],
+                'username' : row[2],
+                'startdate': row[3],
+                'valid': row[4]
+            }
+            result.append(r)
+    return result
+
 def getEmail(username):
     mutex.acquire()
     db.execute("SELECT Email FROM account WHERE username=?", (username,))
@@ -312,7 +330,7 @@ def read_user(uid):
         
         if(userExists(uid)==False):
             auditor.pushEvent("read_user: %s, doesn't exist" % uid, user, request.remote_addr, "")
-            return jsonify({"message": "User doesn't exist"}), 400
+            return jsonify({"message": "User doesn't exist"}), 404
         auditor.pushEvent("read_user: %s" % uid, user, request.remote_addr, "")
         #get own data/regulator data (not formatted)
         if(user==uid or role == REGULATOR):
@@ -326,7 +344,7 @@ def read_user(uid):
             response["role"] = data[2]
             response["validated"] = data[3]
             return jsonify(response), 200
-        
+        # TODO: This code doesn't really work since user==uid captures patients and returns before here.
         if role == PATIENT:
             mutex.acquire()
             db.execute('SELECT StaffUsername FROM patient WHERE PatientUsername=?', (user,))
@@ -457,6 +475,55 @@ def delete_user(uid):
         
     return jsonify({"message": "Invalid request"}), 400
 
+@app.route('/api/v1/sessions', methods=["GET"])
+@login_required
+def get_sessions():
+    """
+        Only regulator has access to this.
+    """
+    data = request.get_json()
+    if "session" in data:
+        user = data["session"]["uid"]
+        mutex.acquire()
+        db.execute('SELECT Role FROM account WHERE Username=?', (user,))
+        role=db.fetchone()[0]
+        mutex.release()
+        
+        #get own data/regulator data (not formatted)
+        if(role == REGULATOR):
+            auditor.pushEvent("get_sessions", user, request.remote_addr, "Access granted")
+            return jsonify(listSessions()), 200
+        auditor.pushEvent("get_sessions", user, request.remote_addr, "Access denied")
+        return "not allowed", 400
+        
+    return jsonify({"message": "Invalid request"}), 400
+
+@app.route('/api/v1/sessions', methods=["DELETE"])
+@login_required
+def del_sessions():
+    """
+        Only regulator has access to this.
+    """
+    data = request.get_json()
+    if "session" in data:
+        user = data["session"]["uid"]
+        mutex.acquire()
+        db.execute('SELECT Role FROM account WHERE Username=?', (user,))
+        role=db.fetchone()[0]
+        mutex.release()
+        
+        #get own data/regulator data (not formatted)
+        if(role == REGULATOR):
+            auditor.pushEvent("delete_session", user, request.remote_addr, "Access granted: " + data["username"] + ",ip: " + data["ip"])
+            if deleteSession(data["username"], data["ip"]):
+                return "Successfully deleted", 200
+            else:
+                return "No session exists", 404
+        auditor.pushEvent("delete_session", user, request.remote_addr, "Access denied")
+        return "not allowed", 400
+    return jsonify({"message": "Invalid request"}), 400
+
+
 @app.route('/api/v1/audit', methods=["GET"])
 @login_required
 def get_audits():
@@ -511,7 +578,7 @@ def login_handler():
             
             if sessionExists(uname, request.remote_addr):
                     auditor.pushEvent("login", uname, request.remote_addr, "Session already active")
-                    return jsonify({'message': 'Account already logged in.'}), 200 #session already verified
+                    return jsonify({'message': 'Account already logged in.'}), 302 #session already verified
             # TODO: Need some session data to send back to the user.
             code = random.randrange(1, 10**6)
             code_str = '{:06}'.format(code)
