@@ -22,6 +22,7 @@ auditor = Auditor("audit.log")
 db.execute("""CREATE TABLE IF NOT EXISTS account (
 Username VARCHAR(255) PRIMARY KEY NOT NULL,
 Password VARCHAR(128) NOT NULL,
+Salt VARCHAR(128) NOT NULL,
 Email VARCHAR(255) NOT NULL,
 Role VARCHAR(255),
 PWExpiryDate TIMESTAMP,
@@ -115,8 +116,8 @@ def updateEmail(username, newEmail):
 
 def updatePassword(username, newPass):
     mutex.acquire()
-    pwdhash = create_password(newPass)
-    db.execute("UPDATE account SET Password=? WHERE username=?", (pwdhash, username,))
+    [pwdhash, salt] = create_password(newPass)
+    db.execute("UPDATE account SET Password=?, Salt=? WHERE username=?", (pwdhash, salt, username,))
     conn.commit()
     rows = db.rowcount
     mutex.release()
@@ -130,9 +131,9 @@ def insertSession(ipAddress, username, startTime, authCode):
     mutex.release()
     return rows > 0
 
-def createUser(username, hpass, email, role, pwExpiry, verifyId):
+def createUser(username, hpass, salt, email, role, pwExpiry, verifyId):
     mutex.acquire()
-    db.execute("INSERT INTO account (Username, Password, Email, Role, PWExpiryDate, VerifyId, Verified) VALUES (?, ?, ?, ?, ?, ?, ?)", (username, hpass, email, role, pwExpiry, verifyId, False),)
+    db.execute("INSERT INTO account (Username, Password, Salt, Email, Role, PWExpiryDate, VerifyId, Verified) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", (username, hpass, salt, email, role, pwExpiry, verifyId, False),)
     conn.commit()
     rows = db.rowcount
     mutex.release()
@@ -239,14 +240,31 @@ app = Flask(__name__)
 app.secret_key = 'some_secret_key_that_needs_to_be_really_long'
 
 def create_password(password):
+    salt = b64encode(os.urandom(16))
+    both = password + str(salt)
+    print(both)
     # requires passlib & argon2_cffi / argon2pure
     # Passlib uses argon2i
     # More than 2 rounds is recommended, too many takes a long time...
     # https://github.com/P-H-C/phc-winner-argon2/blob/master/argon2-specs.pdf
-    return argon2.using(rounds=5).hash(password)
+    return [argon2.using(rounds=5).hash(both), salt]    
 
-def verify_password(password, hash):
-    return argon2.verify(password, hash)
+
+def verify_password(password, hashwd, username):
+    mutex.acquire()
+    db.execute("SELECT Password, Salt FROM account WHERE Username=?", (username,))
+    rows = db.fetchall()
+    mutex.release()
+    if len(rows) > 0:
+        compPwd = password + str(rows[0][1])
+        '''
+        print(rows)
+        print(rows[0][0])
+        print("ONE")
+        print(rows[0][1])
+        print("TWO")
+        '''
+    return argon2.verify(compPwd, hashwd)
 
 def generate_random_id():
     return uuid.uuid1().hex
@@ -377,7 +395,7 @@ def update_user(uid):
             if "email" in data:
                 updateEmail(uid,data["email"])
             if "newPassword" in data and "oldPassword" in data:
-                if verify_password(data["oldPassword"],getHash(uid)):
+                if verify_password(data["oldPassword"],getHash(uid), uid):
                     updatePassword(uid,data["newPassword"])
                     
             auditor.pushEvent("update_user", user, request.remote_addr, "Updated account details: %s" % uid)
@@ -491,7 +509,7 @@ def login_handler():
         return Response("{'message' : 'User doesn't exists'}", status=404)
     else:
         # TODO: check password expiry date.
-        if verify_password(pwd, getHash(uname)):
+        if verify_password(pwd, getHash(uname), uname):
             # Don't allow user to login until their email is verified.
             if accountVerified(uname) == False:
                 response = {}
@@ -567,7 +585,7 @@ def register_handler():
     pwd = data["password"]
     role = data["role"]
 
-    saltandhash = create_password(pwd)
+    [pwdhash, salt] = create_password(pwd)
 
     if userExists(uname):
         auditor.pushEvent("register", uname, request.remote_addr, "Name taken")
@@ -576,7 +594,7 @@ def register_handler():
         vid = generate_random_id()
         # Send link to verify account.
         # 30 day password expiry
-        if createUser(uname, saltandhash, email, role, time.time() + PASSWORD_EXPIRE_TIME, vid) == False:
+        if createUser(uname, pwdhash, salt, email, role, time.time() + PASSWORD_EXPIRE_TIME, vid) == False:
             auditor.pushEvent("register", uname, request.remote_addr, "Name taken")
             return Response("{'message': 'Account name taken!'}", status=200)
         verify_url = "https://localhost:5000" + url_for('verify_handler')+"?verifyId=" + vid
