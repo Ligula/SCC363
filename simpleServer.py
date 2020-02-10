@@ -115,7 +115,8 @@ def updateEmail(username, newEmail):
 
 def updatePassword(username, newPass):
     mutex.acquire()
-    db.execute("UPDATE account SET Password=? WHERE username=?", (newPass, username,))
+    pwdhash = create_password(newPass)
+    db.execute("UPDATE account SET Password=? WHERE username=?", (pwdhash, username,))
     conn.commit()
     rows = db.rowcount
     mutex.release()

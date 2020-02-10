@@ -146,6 +146,21 @@ def patientMenu(uid):
     #print("Password updated. Patient has been notified.")
     print("Do something...")
   elif option == 'C':
+    newEmail = input("\nNew Email: ")
+    if newpwd == newpwdvalid:
+      data = {
+        "session": {
+          "uid": uid
+        },
+        "email": newEmail
+      }
+      jsonData = json.dumps(data)
+      headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
+      r = requests.post(fullAddress + '/api/v1/user/' + uid, data=jsonData, headers=headers, verify="cert.pem")
+
+      if r.status_code == 200:
+        print("Email updated successfully")
+      print(r.message)
     #newemail = input("Enter new email: ")
     #print("Enter 'cancel' to cancel and return to the menu.")
     #newemailvalid = input("Re-enter new email to confirm: ")
