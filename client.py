@@ -85,13 +85,13 @@ def otc(user, alreadyActive):
 
   if r.status_code == 200:
     response = json.loads(r.content)
-    role = response["session"]["role"]
+    role = response['session']['role']
     if role == "patient":
       patientMenu(user)
     elif role == "regulator":
       regulatorMenu(user)
     elif role == "doctor":
-      doctorMenu(user)
+      doctorMenu(user, role)
 
 def patientMenu(uid):
   print("Press A to view record.")
@@ -289,9 +289,38 @@ def regulatorMenu(uid):
         print(r.content)
 
 
-def doctorMenu(uid):
+def doctorMenu(uid, role):
   print("Your role is " + role)
   print("Press A to search for a patient")
+  option = 'E'
+
+  while option != 'A' and option != 'B' and option != 'C' and option != 'D':
+    option = input("Choice: ")
+
+  if option == 'A':
+    patientuid = input("Enter Patient No: ")
+    data = {
+      "session": {
+        "uid": uid
+      }
+    }
+    jsonData = json.dumps(data)
+    headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
+    r = requests.get(fullAddress + '/api/v1/user/' + patientuid, data=jsonData, headers=headers, verify="cert.pem")
+
+    if r.status_code == 200:
+      print("Houston we are a go")
+    
+    print("View Patient Data")
+
+  if option == 'B':
+    print("Update Patient Details")
+
+  if option == 'C':
+    print("Staff data")
+
+  if option == 'D':
+    print("Assign Doctors to Patients")
 
   ### IF A PRESSED
   # pusername = input("Enter patient username: ")
