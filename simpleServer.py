@@ -345,7 +345,7 @@ def read_user(uid):
             # Allow patient to see their doctor
             if role == PATIENT:
                 mutex.acquire()
-                db.execute('SELECT StaffUsername, Conditions, DateOfBirth FROM patient WHERE PatientUsername=?', (user,))
+                db.execute('SELECT StaffUsername, Conditions, DateOfBirth FROM patient WHERE PatientUsername=?', (uid,))
                 staff=db.fetchone()
                 mutex.release()
                 response["assigned_doctor"] = staff[0]
@@ -360,19 +360,22 @@ def read_user(uid):
             found=db.fetchone()
             uidrole = found[2]
             mutex.release()
+            response = {}
+            response["username"] = data[0]
+            response["email"] = data[1]
 
             # Doctor only needs username / email of other doctors / regulators
-            if uidrole == DOCTOR or uidrole == REGULATOR:
-                response = {}
-                response["username"] = data[0]
-                response["email"] = data[1]
-
-            #mutex.acquire()
-            #db.execute('SELECT a.Username, a.Email, p.DateOfBirth, p.conditions, p.StaffUsername FROM patient p,account a WHERE p.PatientUsername = a.Username AND a.Username=?', (uid,))
-            #patient=db.fetchone()
-            #mutex.release()
-            #if patient[4]==user:
-            #    return jsonify(patient), 200
+            if uidrole == PATIENT:
+                mutex.acquire()
+                db.execute('SELECT StaffUsername, Conditions, DateOfBirth FROM patient WHERE PatientUsername=?', (uid,))
+                staff=db.fetchone()
+                mutex.release()
+                if user == staff[0]:
+                    return jsonify(response), 200
+                else:
+                    return jsonify({"message": "Not your patient"}), 400
+            else:
+                return jsonify(response), 200
         
         auditor.pushEvent("read_user: %s" % uid, user, request.remote_addr, "Operation denied, invalid role %s" % role)
         return jsonify({"message": "You cannot do this operation"}), 400
