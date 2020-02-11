@@ -26,7 +26,10 @@ class Auditor:
         if(not os.path.exists(auditFile)):
             # Create file if not exists.
             self.handle = open(auditFile, 'a+')
-            os.chflags(auditFile, stat.UF_APPEND|stat.SF_APPEND)
+            try:
+                os.chflags(auditFile, stat.UF_APPEND|stat.SF_APPEND)
+            except:
+                
             self.handle.close()
         # TODO: some exclusive lock for the file to stop other processes from reading it.
         self.handle = open(auditFile, 'r+b')
