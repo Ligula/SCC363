@@ -1,5 +1,5 @@
 from datetime import datetime
-import os
+import os, stat
 import pickle
 from threading import Lock
 
@@ -23,11 +23,13 @@ class AuditEntry(object):
 class Auditor:
     def __init__(self, auditFile):
         self.file = auditFile
-        # Create file if not exists.
-        self.handle = open("audit.log", 'a+')
-        self.handle.close()
+        if(not os.path.exists(auditFile)):
+            # Create file if not exists.
+            self.handle = open(auditFile, 'a+')
+            os.chflags(auditFile, stat.UF_APPEND|stat.SF_APPEND)
+            self.handle.close()
         # TODO: some exclusive lock for the file to stop other processes from reading it.
-        self.handle = open("audit.log", 'r+b')
+        self.handle = open(auditFile, 'r+b')
         self.mutex = Lock()
 
     def pushEvent(self, operation, userId, ipAddr, reason):
