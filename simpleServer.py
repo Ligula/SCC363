@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 from colorama import Fore, Style
 
 from auditor import Auditor
+from ratelimiter import RateLimiter
 
 mutex = Lock()
 
@@ -18,6 +19,9 @@ conn = sqlite3.connect('med.db', check_same_thread=False, detect_types=sqlite3.P
 db = conn.cursor()
 
 auditor = Auditor("audit.log")
+
+loginLimiter = RateLimiter(5, 20)
+registerLimiter = RateLimiter(3, 30)
 
 db.execute("""CREATE TABLE IF NOT EXISTS account (
 Username VARCHAR(255) PRIMARY KEY NOT NULL,
@@ -592,6 +596,12 @@ def login_handler():
     data = request.get_json()
     uname = data["username"]
     pwd = data["password"]
+
+
+    if not loginLimiter.canPass(request.remote_addr):
+        auditor.pushEvent("login", uname, request.remote_addr, "Too many login attempts")
+        return jsonify({"message" : "Too many requests"}), 429
+
     if userExists(uname) == False:
         auditor.pushEvent("login", uname, request.remote_addr, "Account not found")
         return Response("{'message' : 'User doesn't exists'}", status=404)
@@ -673,6 +683,10 @@ def register_handler():
     pwd = data["password"]
     dob = data["dob"]
     role = data["role"]
+
+    if not registerLimiter.canPass(request.remote_addr):
+        auditor.pushEvent("register", uname, request.remote_addr, "Too many register events")
+        return jsonify({"message" : "Too many requests"}), 429
 
     [pwdhash, salt] = create_password(pwd)
 
