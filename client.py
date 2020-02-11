@@ -49,16 +49,27 @@ def register():
   password = input('Password: ')
   role = input('Role (patient, doctor, regulator): ').lower()
 
+  while not any(ext in role for ext in ["patient", "doctor", "regulator"]):
+    role = input('Role (patient, doctor, regulator): ').lower()
+
   while pass_validate.pass_eval(password, username, dob) != True:
     password = input("\nPassword: ")
-
 
   data = {
     "email": email,
     "username": username,
     "password": password,
-    "role": role
+    "role": role,
+    "dob": dob
   }
+
+  if role == "patient":
+    existingConditions = input("Existing conditions: ")
+    data["conditions"] = existingConditions
+  elif role == "doctor":
+    position = input("Position: ")
+    data["position"] = position
+
   jsonData = json.dumps(data)
   headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
   r = requests.post(fullAddress + '/api/v1/register', data=jsonData, headers=headers, verify="cert.pem")

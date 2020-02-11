@@ -125,7 +125,7 @@ def updatePassword(username, newPass):
 
 def insertSession(ipAddress, username, startTime, authCode):
     mutex.acquire()
-    db.execute("INSERT INTO session (IPAddress, Username, StartDate, AuthCode, Valid) VALUES (?, ?, ?, ?, ?)", (ipAddress, username, startTime, authCode, False))
+    db.execute("INSERT INTO session (IPAddress, Username, StartDate, AuthCode, Valid) VALUES (?, ?, ?, ?, ?)", (ipAddress, username, startTime, authCode, False,))
     conn.commit()
     rows = db.rowcount
     mutex.release()
@@ -133,7 +133,23 @@ def insertSession(ipAddress, username, startTime, authCode):
 
 def createUser(username, hpass, salt, email, role, pwExpiry, verifyId):
     mutex.acquire()
-    db.execute("INSERT INTO account (Username, Password, Salt, Email, Role, PWExpiryDate, VerifyId, Verified) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", (username, hpass, salt, email, role, pwExpiry, verifyId, False),)
+    db.execute("INSERT INTO account (Username, Password, Salt, Email, Role, PWExpiryDate, VerifyId, Verified) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", (username, hpass, salt, email, role, pwExpiry, verifyId, False,))
+    conn.commit()
+    rows = db.rowcount
+    mutex.release()
+    return rows > 0
+
+def createPatient(dob, conditions, patientName, staffName):
+    mutex.acquire()
+    db.execute("INSERT INTO patient (DateOfBirth, Conditions, PatientUsername, StaffUsername) VALUES (?, ?, ?, ?)", (dob, conditions, patientName, staffName,))
+    conn.commit()
+    rows = db.rowcount
+    mutex.release()
+    return rows > 0
+
+def createStaff(position, dob, fileLocation, staffName):
+    mutex.acquire()
+    db.execute("INSERT INTO staff (DateOfBirth, FileLocation, Position, StaffUsername) VALUES (?, ?, ?, ?)", (dob, fileLocation, position, staffName,))
     conn.commit()
     rows = db.rowcount
     mutex.release()
@@ -361,8 +377,8 @@ def read_user(uid):
             uidrole = found[2]
             mutex.release()
             response = {}
-            response["username"] = data[0]
-            response["email"] = data[1]
+            response["username"] = found[0]
+            response["email"] = found[1]
 
             # Doctor only needs username / email of other doctors / regulators
             if uidrole == PATIENT:
@@ -655,6 +671,7 @@ def register_handler():
     email = data["email"]
     uname = data["username"]
     pwd = data["password"]
+    dob = data["dob"]
     role = data["role"]
 
     [pwdhash, salt] = create_password(pwd)
@@ -669,6 +686,12 @@ def register_handler():
         if createUser(uname, pwdhash, salt, email, role, time.time() + PASSWORD_EXPIRE_TIME, vid) == False:
             auditor.pushEvent("register", uname, request.remote_addr, "Name taken")
             return Response("{'message': 'Account name taken!'}", status=200)
+        # Create entry for patients and doctors.
+        if role == PATIENT:
+            createPatient(datetime.strptime(dob, '%d/%m/%Y').date(), data["conditions"], uname, None)
+        elif role == DOCTOR:
+            createStaff(data["position"], datetime.strptime(dob, '%d/%m/%Y').date(), "", uname)
+        
         verify_url = "https://localhost:5000" + url_for('verify_handler')+"?verifyId=" + vid
         SendEmail(email, 'SCC-363 Registration', ('Hi %s, welcome to the system! \n Please verify your email at: %s' % (uname, verify_url)))
         auditor.pushEvent("register", uname, request.remote_addr, "")
@@ -685,6 +708,7 @@ def SendEmail(email, subject, body):
     Returns true or false if sending succeeded or failed. 
     """
     try:
+        print("Sending email...", email)
         msg = EmailMessage()
         msg['Subject'] = subject
         msg['From'] = email_user
