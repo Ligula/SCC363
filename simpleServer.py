@@ -489,6 +489,13 @@ def delete_user(uid):
         
             db.execute('DELETE FROM patient WHERE PatientUsername=?', (uid,))
                     
+            mutex.acquire()
+            db.execute('SELECT PatientUsername FROM patient WHERE StaffUsername = ?', (uid,))
+            if db.rowcount != 0:
+                mutex.release()
+                return jsonify({"message": "Can't delete account until all patients reallocated"}), 400
+            mutex.release()
+            
             db.execute('DELETE FROM staff WHERE StaffUsername=?', (uid,))
                 
             db.execute('DELETE FROM session WHERE Username=?', (uid,))
