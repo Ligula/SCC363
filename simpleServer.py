@@ -428,8 +428,8 @@ def update_user(uid):
                     updateString=""
                     if "patientCondition" in data:
                         updateString+="Conditions = \""+data["patientCondition"]+"\""
-                    elif "staffUsername" in data:
-                        updateString+="StaffUsername = \""+data["staffUsername"]+"\""
+                    #elif "staffUsername" in data:
+                    #   updateString+="StaffUsername = \""+data["staffUsername"]+"\""
                     
                     db.execute('UPDATE patient SET ? WHERE PatientUsername=?', (updateString,uid))
                     conn.commit()

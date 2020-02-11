@@ -292,6 +292,9 @@ def regulatorMenu(uid):
 def doctorMenu(uid, role):
   print("Your role is " + role)
   print("Press A to search for a patient")
+  print("Press B to update patient condition")
+  print("Press C to update email")
+  print("Press D to update password")
   option = 'E'
 
   while option != 'A' and option != 'B' and option != 'C' and option != 'D':
@@ -322,7 +325,7 @@ def doctorMenu(uid, role):
       "session": {
         "uid": uid
       },
-      "condition": condition
+      "patientCondition": condition
     }
     jsonData = json.dumps(data)
     headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
