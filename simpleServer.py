@@ -323,15 +323,14 @@ def read_user(uid):
     if "session" in data:
     
         user = data["session"]["uid"]
-        mutex.acquire()
-        db.execute('SELECT Role FROM account WHERE Username=?', (user,))
-        role=db.fetchone()[0]
-        mutex.release()
         
         if(userExists(uid)==False):
             auditor.pushEvent("read_user: %s, doesn't exist" % uid, user, request.remote_addr, "")
             return jsonify({"message": "User doesn't exist"}), 404
         auditor.pushEvent("read_user: %s" % uid, user, request.remote_addr, "")
+
+        role = getRole(user)
+
         #get own data/regulator data (not formatted)
         if(user==uid or role == REGULATOR):
             mutex.acquire()
@@ -343,27 +342,38 @@ def read_user(uid):
             response["email"] = data[1]
             response["role"] = data[2]
             response["validated"] = data[3]
-            return jsonify(response), 200
-        # TODO: This code doesn't really work since user==uid captures patients and returns before here.
-        if role == PATIENT:
-            mutex.acquire()
-            db.execute('SELECT StaffUsername FROM patient WHERE PatientUsername=?', (user,))
-            staff=db.fetchone()[0]
-            mutex.release()
-            if(uid == staff):
+            # Allow patient to see their doctor
+            if role == PATIENT:
                 mutex.acquire()
-                db.execute('SELECT StaffUsername, Position FROM staff WHERE StaffUsername=?', (uid,))
-                data = db.fetchone()
+                db.execute('SELECT StaffUsername, Conditions, DateOfBirth FROM patient WHERE PatientUsername=?', (user,))
+                staff=db.fetchone()
                 mutex.release()
-                return jsonify(data), 200
+                response["assigned_doctor"] = staff[0]
+                response["conditions"] = staff[1]
+                response["dob"] = staff[2]
+
+            return jsonify(response), 200
                 
-        elif role == DOCTOR:
+        if role == DOCTOR:
             mutex.acquire()
-            db.execute('SELECT a.Username, a.Email, p.DateOfBirth, p.conditions, p.StaffUsername FROM patient p,account a WHERE p.PatientUsername = a.Username AND a.Username=?', (uid,))
-            patient=db.fetchone()
+            db.execute('SELECT Username, Email, Role FROM account WHERE Username=?', (uid,))
+            found=db.fetchone()
+            uidrole = found[2]
             mutex.release()
-            if patient[4]==user:
-                return jsonify(patient), 200
+
+            # Doctor only needs username / email of other doctors / regulators
+            if uidrole == DOCTOR or uidrole == REGULATOR:
+                response = {}
+                response["username"] = data[0]
+                response["email"] = data[1]
+
+            #mutex.acquire()
+            #db.execute('SELECT a.Username, a.Email, p.DateOfBirth, p.conditions, p.StaffUsername FROM patient p,account a WHERE p.PatientUsername = a.Username AND a.Username=?', (uid,))
+            #patient=db.fetchone()
+            #mutex.release()
+            #if patient[4]==user:
+            #    return jsonify(patient), 200
+        
         auditor.pushEvent("read_user: %s" % uid, user, request.remote_addr, "Operation denied, invalid role %s" % role)
         return jsonify({"message": "You cannot do this operation"}), 400
         
