@@ -105,104 +105,117 @@ def otc(user, alreadyActive):
       doctorMenu(user, role)
 
 
-
-# def mainMenu(user,role):
-#   a = ""
-#   while a != 2:
-#     print("\n1) Menu")
-#     print("2) Logout")
-#     a = int(input("> "))
-
-#     if a == 1:
-
-
 def patientMenu(uid):
-  print("Press A to view record.")
-  print("Press B to update password")
-  print("Press C to update email address")
-  print("Press D to delete account")
-  option = 'E'
 
-  while option != 'A' and option != 'B' and option != 'C' and option != 'D':
-    option = input("Choice: ")
-  if option == 'A':
-    print("Fetching record...")
-    data = {
-      "session": {
-        "uid" : uid
+  option = ''
+  while option != 'E':
+    print("\nPress A to view record.")
+    print("Press B to update password")
+    print("Press C to update email address")
+    print("Press D to delete account")
+    print("Press E to logout")
+    option = ''
+
+    while option != 'A' and option != 'B' and option != 'C' and option != 'D' and option != 'E':
+      option = input("Choice: ")
+
+    if option == 'A':
+      print("\nFetching record...")
+      data = {
+        "session": {
+          "uid" : uid
+        }
       }
-    }
-    jsonData = json.dumps(data)
-    headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
-    r = requests.get(fullAddress + '/api/v1/user/' + uid, data=jsonData, headers=headers, verify="cert.pem")
-    print(r.status_code)
-    print(r.content)
-  elif option == 'B':
-    oldpwd = input("\nCurrent Password:")
-    newpwd = input("\nPassword: ")
-    while pass_validate.pass_eval_nousr(newpwd) != True:
-      newpwd = input("\nPassword: ")
-    #print("Enter 'cancel' to cancel and return to the menu.")
-    newpwdvalid = input("Re-enter new password to confirm: ")
-    if newpwd == newpwdvalid:
+      jsonData = json.dumps(data)
+      headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
+      r = requests.get(fullAddress + '/api/v1/user/' + uid, data=jsonData, headers=headers, verify="cert.pem")
+      print(r.status_code)
+      print(r.content)
+
+    elif option == 'B':
+      oldpwd = input("\nCurrent Password:")
+      newpwd = input("New Password: ")
+      while pass_validate.pass_eval_nousr(newpwd) != True:
+        newpwd = input("New password: ")
+      #print("Enter 'cancel' to cancel and return to the menu.")
+      newpwdvalid = input("Re-enter new password to confirm: ")
+      if newpwd == newpwdvalid:
+        data = {
+          "session": {
+            "uid": uid
+          },
+          "oldPassword": oldpwd,
+          "newPassword": newpwd
+        }
+        jsonData = json.dumps(data)
+        headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
+        r = requests.post(fullAddress + '/api/v1/user/' + uid, data=jsonData, headers=headers, verify="cert.pem")
+
+        if r.status_code == 200:
+          print("Password updated successfully")
+
+    elif option == 'C':
+      newEmail = input("\nNew Email: ")
       data = {
         "session": {
           "uid": uid
         },
-        "oldPassword": oldpwd,
-        "newPassword": newpwd
+        "email": newEmail
       }
       jsonData = json.dumps(data)
       headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
       r = requests.post(fullAddress + '/api/v1/user/' + uid, data=jsonData, headers=headers, verify="cert.pem")
 
       if r.status_code == 200:
-        print("Password updated successfully")
-  elif option == 'C':
-    newEmail = input("\nNew Email: ")
-    data = {
-      "session": {
-        "uid": uid
-      },
-      "email": newEmail
-    }
-    jsonData = json.dumps(data)
-    headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
-    r = requests.post(fullAddress + '/api/v1/user/' + uid, data=jsonData, headers=headers, verify="cert.pem")
+        print("Email updated successfully")
+        print(r.content)
 
-    if r.status_code == 200:
-      print("Email updated successfully")
-      print(r.content)
-  elif option == 'D':
-    data = {
-      "session": {
-        "uid": uid
+    elif option == 'D':
+      data = {
+        "session": {
+          "uid": uid
+        }
       }
-    }
-    jsonData = json.dumps(data)
-    headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
-    r = requests.delete(fullAddress + '/api/v1/user/' + uid, data=jsonData, headers=headers, verify="cert.pem")
+      jsonData = json.dumps(data)
+      headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
+      r = requests.delete(fullAddress + '/api/v1/user/' + uid, data=jsonData, headers=headers, verify="cert.pem")
 
-    if r.status_code == 200:
-      print("User deleted succesfully")
+      if r.status_code == 200:
+        print("\nUser deleted succesfully")
 
-    #debug
-    print(r.text)
+      #debug
+      print(r.text)
+
+    elif option == 'E':
+      data = {
+          "session": {
+            "uid": uid
+          }
+      }
+      jsonData = json.dumps(data)
+      headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
+      r = requests.get(fullAddress + '/api/v1/logout', data=jsonData, headers=headers, verify="cert.pem")
+      print(r.text)
+      login_menu()
 
 def regulatorMenu(uid):
-  while True:
+
+  option = ''
+  while option !='E':
     # TODO: need to allow them to change password / email. Same as patient code.
     print("\nPress A to access audit logs")
     print("Press B to access user data")
     print("Press C to assign Doctors to patients")
     print("Press D to view active sessions")
-    print("Press E to revoke session")
+    print("Press R to revoke session")
     print("Press F to update password")
     print("Press G to update email")
-    option = 'H'
+    print("Press E to logout")
+    option = ''
 
-    while option != 'A' and option != 'B' and option != 'C' and option != 'D' and option != 'E' and option != 'F' and option != 'G':
+    while option != 'A' and option != 'B' and option != 'C' and option != 'D' and option != 'R' and option != 'F' and option != 'G' and option != 'E':
       option = input("Choice: ")
+
     if option == 'A':
       data = {
         "session": {
@@ -214,13 +227,14 @@ def regulatorMenu(uid):
       r = requests.get(fullAddress + '/api/v1/audit', data=jsonData, headers=headers, verify="cert.pem")
 
       if r.status_code == 200:
-        print("Audit log retreived...")
+        print("\nAudit log retreived...")
         print(json.dumps(json.loads(r.content), indent=4, sort_keys=True))
       else:
         print("Failed to get audit log...")
+
     elif option == 'B': 
       # Read user
-      user = input("Username: ")
+      user = input("\nUsername: ")
       data = {
         "session": {
           "uid": uid
@@ -237,10 +251,12 @@ def regulatorMenu(uid):
         print("User not found...")
       else:
         print("Invalid operation")
+
     elif option == 'C':
-      print("Assign doctor to patients")
+      print("\nAssign doctor to patients")
+
     elif option == 'D': # Active sessions
-      print("Fetching active sessions...")
+      print("\nFetching active sessions...")
       data = {
         "session": {
           "uid": uid
@@ -254,8 +270,9 @@ def regulatorMenu(uid):
         print(json.dumps(json.loads(r.content), indent=4, sort_keys=True))
       else:
         print("Invalid operation")
-    elif option == 'E':
-      print("Revoke session")
+
+    elif option == 'R':
+      print("\nRevoke session")
       username = input('Username: ')
       ip = input('IP: ')
       data = {
@@ -274,11 +291,12 @@ def regulatorMenu(uid):
         print(r.content)
       else:
         print("Invalid operation")
+
     elif option == 'F':
       oldpwd = input("\nCurrent Password:")
-      newpwd = input("\nPassword: ")
+      newpwd = input("New Password: ")
       while pass_validate.pass_eval_nousr(newpwd) != True:
-        newpwd = input("\nPassword: ")
+        newpwd = input("\nNew Password: ")
       #print("Enter 'cancel' to cancel and return to the menu.")
       newpwdvalid = input("Re-enter new password to confirm: ")
       if newpwd == newpwdvalid:
@@ -295,6 +313,7 @@ def regulatorMenu(uid):
 
         if r.status_code == 200:
           print("Password updated successfully")
+
     elif option == 'G':
       newEmail = input("\nNew Email: ")
       data = {
@@ -310,6 +329,19 @@ def regulatorMenu(uid):
       if r.status_code == 200:
         print("Email updated successfully")
         print(r.content)
+
+    elif option == 'E':
+      data = {
+          "session": {
+            "uid": uid
+          }
+      }
+      jsonData = json.dumps(data)
+      headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
+      r = requests.get(fullAddress + '/api/v1/logout', data=jsonData, headers=headers, verify="cert.pem")
+      print(r.text)
+      login_menu()
+
 
 
 def doctorMenu(uid, role):
@@ -382,9 +414,9 @@ def doctorMenu(uid, role):
 
     if option == 'D':      
       oldpwd = input("\nCurrent Password:")
-      newpwd = input("\nPassword: ")
+      newpwd = input("New Password: ")
       while pass_validate.pass_eval_nousr(newpwd) != True:
-        newpwd = input("\nPassword: ")
+        newpwd = input("New Password: ")
       #print("Enter 'cancel' to cancel and return to the menu.")
       newpwdvalid = input("Re-enter new password to confirm: ")
       if newpwd == newpwdvalid:
@@ -412,6 +444,7 @@ def doctorMenu(uid, role):
       headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
       r = requests.get(fullAddress + '/api/v1/logout', data=jsonData, headers=headers, verify="cert.pem")
       print(r.text)
+      login_menu()
 
 
   ### IF A PRESSED
@@ -487,18 +520,22 @@ def doctorMenu(uid, role):
   # print("Condition updated/added. Patient has been notified.")
 
 def login_menu():
-  choice = input("\n1) Login\n2) Register\n> ")
+  choice = input("\n1) Login\n2) Register\n3) Exit\n> ")
 
-  while choice != "1" and choice != "2":
+  while choice != "1" and choice != "2" and choice != "3":
     print("\nInvalid input, try again!")
-    choice = input("1) Login\n2) Register\n> ")
+    choice = input("1) Login\n2) Register\n3) Exit")
   
   if choice == "1":
     if login() == False:
       login_menu()
+
   elif choice == "2":
     register()
     login_menu()
+
+  elif choice == "3":
+    exit()
 
 if __name__ == "__main__":
   if isServerAlive() == True:
