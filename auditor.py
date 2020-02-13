@@ -29,6 +29,7 @@ class Auditor:
             try:
                 os.chflags(auditFile, stat.UF_APPEND|stat.SF_APPEND)
             except:
+                pass
                 
             self.handle.close()
         # TODO: some exclusive lock for the file to stop other processes from reading it.

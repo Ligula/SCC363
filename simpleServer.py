@@ -609,7 +609,9 @@ def login_handler():
         auditor.pushEvent("login", uname, request.remote_addr, "Too many login attempts")
         return jsonify({"message" : "Too many requests"}), 429
 
+    
     if userExists(uname) == False:
+        
         auditor.pushEvent("login", uname, request.remote_addr, "Account not found")
         return Response("{'message' : 'User doesn't exists'}", status=404)
     else:

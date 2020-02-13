@@ -39,6 +39,7 @@ def login():
   if(r.status_code == 200 or r.status_code == 302):
     otc(login, r.status_code == 302)
   else:
+    print(r.text)
     return False
 
 
@@ -87,12 +88,11 @@ def otc(user, alreadyActive):
     "otc": code
   }
   jsonData = json.dumps(data)
-  print(jsonData)
   headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
 
   r = requests.post(fullAddress + '/api/v1/otc', data=jsonData, headers=headers, verify="cert.pem")
-  print(r.content)
-  print(r.status_code)
+  # print(r.content)
+  # print(r.status_code)
 
   if r.status_code == 200:
     response = json.loads(r.content)
@@ -103,6 +103,18 @@ def otc(user, alreadyActive):
       regulatorMenu(user)
     elif role == "doctor":
       doctorMenu(user, role)
+
+
+
+# def mainMenu(user,role):
+#   a = ""
+#   while a != 2:
+#     print("\n1) Menu")
+#     print("2) Logout")
+#     a = int(input("> "))
+
+#     if a == 1:
+
 
 def patientMenu(uid):
   print("Press A to view record.")
@@ -180,7 +192,7 @@ def patientMenu(uid):
 def regulatorMenu(uid):
   while True:
     # TODO: need to allow them to change password / email. Same as patient code.
-    print("Press A to access audit logs")
+    print("\nPress A to access audit logs")
     print("Press B to access user data")
     print("Press C to assign Doctors to patients")
     print("Press D to view active sessions")
@@ -301,91 +313,106 @@ def regulatorMenu(uid):
 
 
 def doctorMenu(uid, role):
-  print("Your role is " + role)
-  print("Press A to search for a patient")
-  print("Press B to update patient condition")
-  print("Press C to update email")
-  print("Press D to update password")
-  option = 'E'
+  option = ''
 
-  while option != 'A' and option != 'B' and option != 'C' and option != 'D':
+  while option != 'E':
+    print("\nPress A to search for a patient")
+    print("Press B to update patient condition")
+    print("Press C to update email")
+    print("Press D to update password")
+    print("Press E to logout")
+    
     option = input("Choice: ")
+    while option != 'A' and option != 'B' and option != 'C' and option != 'D' and option != 'E':
+      option = input("Choice: ")
 
-  if option == 'A':
-    print("View User Data")
-    patientuid = input("Enter Patient Username: ")
-    data = {
-      "session": {
-        "uid": uid
+    if option == 'A':
+      print("\nView User Data")
+      patientuid = input("Enter Patient Username: ")
+      data = {
+        "session": {
+          "uid": uid
+        }
       }
-    }
-    jsonData = json.dumps(data)
-    headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
-    r = requests.get(fullAddress + '/api/v1/user/' + patientuid, data=jsonData, headers=headers, verify="cert.pem")
+      jsonData = json.dumps(data)
+      headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
+      r = requests.get(fullAddress + '/api/v1/user/' + patientuid, data=jsonData, headers=headers, verify="cert.pem")
 
-    if r.status_code == 200:
-      print("Loading details...")
-      print(json.dumps(json.loads(r.content), indent=4, sort_keys=True))
-    elif r.status_code == 404:
-      print("Patient not found")
-  if option == 'B':
-    print("Update Patient Details")
-    patientid = input("Enter patient username: ")
-    condition = input("Conditions:")
-    data = {
-      "session": {
-        "uid": uid
-      },
-      "patientCondition": condition
-    }
-    jsonData = json.dumps(data)
-    headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
-    r = requests.post(fullAddress + '/api/v1/user/' + patientid, data=jsonData, headers=headers, verify="cert.pem")
-
-    if r.status_code == 200:
-      print("Patient details updated successfully")
-      print(r.content)
-    elif r.status_code == 404:
-      print("Patient not found")
-
-  if option == 'C':
-    print("Update email")
-    newEmail = input("\nNew Email: ")
-    data = {
-      "session": {
-        "uid": uid
-      },
-      "email": newEmail
-    }
-    jsonData = json.dumps(data)
-    headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
-    r = requests.post(fullAddress + '/api/v1/user/' + uid, data=jsonData, headers=headers, verify="cert.pem")
-
-    if r.status_code == 200:
-      print("Email updated successfully")
-      print(r.content)
-
-  if option == 'D':      
-    oldpwd = input("\nCurrent Password:")
-    newpwd = input("\nPassword: ")
-    while pass_validate.pass_eval_nousr(newpwd) != True:
-      newpwd = input("\nPassword: ")
-    #print("Enter 'cancel' to cancel and return to the menu.")
-    newpwdvalid = input("Re-enter new password to confirm: ")
-    if newpwd == newpwdvalid:
+      if r.status_code == 200:
+        print("\nLoading details...")
+        print(json.dumps(json.loads(r.content), indent=4, sort_keys=True))
+      elif r.status_code == 404:
+        print("\nPatient not found")
+    if option == 'B':
+      print("Update Patient Details")
+      patientid = input("Enter patient username: ")
+      condition = input("Conditions:")
       data = {
         "session": {
           "uid": uid
         },
-        "oldPassword": oldpwd,
-        "newPassword": newpwd
+        "patientCondition": condition
+      }
+      jsonData = json.dumps(data)
+      headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
+      r = requests.post(fullAddress + '/api/v1/user/' + patientid, data=jsonData, headers=headers, verify="cert.pem")
+
+      if r.status_code == 200:
+        print("Patient details updated successfully")
+        print(r.content)
+      elif r.status_code == 404:
+        print("Patient not found")
+
+    if option == 'C':
+      print("Update email")
+      newEmail = input("\nNew Email: ")
+      data = {
+        "session": {
+          "uid": uid
+        },
+        "email": newEmail
       }
       jsonData = json.dumps(data)
       headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
       r = requests.post(fullAddress + '/api/v1/user/' + uid, data=jsonData, headers=headers, verify="cert.pem")
 
       if r.status_code == 200:
-        print("Password updated successfully")
+        print("Email updated successfully")
+        print(r.content)
+
+    if option == 'D':      
+      oldpwd = input("\nCurrent Password:")
+      newpwd = input("\nPassword: ")
+      while pass_validate.pass_eval_nousr(newpwd) != True:
+        newpwd = input("\nPassword: ")
+      #print("Enter 'cancel' to cancel and return to the menu.")
+      newpwdvalid = input("Re-enter new password to confirm: ")
+      if newpwd == newpwdvalid:
+        data = {
+          "session": {
+            "uid": uid
+          },
+          "oldPassword": oldpwd,
+          "newPassword": newpwd
+        }
+        jsonData = json.dumps(data)
+        headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
+        r = requests.post(fullAddress + '/api/v1/user/' + uid, data=jsonData, headers=headers, verify="cert.pem")
+
+        if r.status_code == 200:
+          print("Password updated successfully")
+    
+    if option == 'E':
+      data = {
+          "session": {
+            "uid": uid
+          }
+      }
+      jsonData = json.dumps(data)
+      headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
+      r = requests.get(fullAddress + '/api/v1/logout', data=jsonData, headers=headers, verify="cert.pem")
+      print(r.text)
+
 
   ### IF A PRESSED
   # pusername = input("Enter patient username: ")
