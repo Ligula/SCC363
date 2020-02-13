@@ -391,6 +391,8 @@ def read_user(uid):
                 staff=db.fetchone()
                 mutex.release()
                 if user == staff[0]:
+                    response["conditions"] = staff[1]
+                    response["dob"] = staff[2]
                     return jsonify(response), 200
                 else:
                     return "Not your patient", 400
@@ -433,6 +435,9 @@ def update_user(uid):
         role=db.fetchone()[0]
         mutex.release()
         
+        if (userExists(uid) == False):
+            return "User not found", 404
+
         #get own data/regulator data (not formatted)
         if(user==uid):
             if "email" in data:
@@ -458,13 +463,7 @@ def update_user(uid):
                 patient=db.fetchone()
                 mutex.release()
                 if patient[0]==user:
-                    updateString=""
-                    if "patientCondition" in data:
-                        updateString+="Conditions = \""+data["patientCondition"]+"\""
-                    #elif "staffUsername" in data:
-                    #   updateString+="StaffUsername = \""+data["staffUsername"]+"\""
-                    
-                    db.execute('UPDATE patient SET ? WHERE PatientUsername=?', (updateString,uid))
+                    db.execute('UPDATE patient SET Conditions=? WHERE PatientUsername=?', (data["patientCondition"],uid,))
                     conn.commit()
                     auditor.pushEvent("update_user: ", user, request.remote_addr, "Updated account details: %s" % uid)
                     return uid+" details updated", 200
@@ -562,6 +561,45 @@ def del_sessions():
                 return "No session exists", 404
         auditor.pushEvent("delete_session", user, request.remote_addr, "Access denied")
         return "You cannot access this resource", 400
+    return "Invalid request, need session data", 400
+
+@app.route('/api/v1/assign', methods=["POST"])
+@login_required
+def assign_patient():
+    """
+    data fields:
+        "patient"
+        "doctor"
+    """
+    data = request.get_json()
+    if "session" in data:
+        user = data["session"]["uid"]
+        mutex.acquire()
+        db.execute('SELECT Role FROM account WHERE Username=?', (user,))
+        role=db.fetchone()[0]
+        mutex.release()
+
+        patient = data["patient"]
+        doctor = data["doctor"]
+        
+        # Only allow regulator access.
+        if(role == REGULATOR):
+            auditor.pushEvent("assign_patient", user, request.remote_addr, "Access granted")
+            if userExists(patient) == False:
+                return "Patient not found", 404
+            if userExists(doctor) == False:
+                return "Doctor not found", 404
+            if getRole(doctor) != DOCTOR:
+                return doctor + " is not a doctor", 404
+            
+            mutex.acquire()
+            db.execute("UPDATE patient SET StaffUsername=? WHERE PatientUsername=?", (doctor, patient,))
+            conn.commit()
+            mutex.release()
+
+            return "Patient assigned to doctor successfully!", 200
+        auditor.pushEvent("assign_patient", user, request.remote_addr, "Access denied")
+        return "You are not allowed to access this resource", 400
     return "Invalid request, need session data", 400
 
 @app.route('/api/v1/userlist', methods=["GET"])

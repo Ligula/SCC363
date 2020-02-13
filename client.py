@@ -275,6 +275,20 @@ def regulatorMenu(uid):
     elif option == 'C':
       print("\nAssign doctor to patients")
 
+      patient = input("Patient: ")
+      doctor = input("Doctor: ")
+
+      data = {
+        "session": {
+          "uid": uid
+        },
+        "doctor": doctor,
+        "patient": patient
+      }
+      jsonData = json.dumps(data)
+      headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
+      r = requests.post(fullAddress + '/api/v1/assign', data=jsonData, headers=headers, verify="cert.pem")
+      print(r.content)
     elif option == 'D': # Active sessions
       print("\nFetching active sessions...")
       data = {
