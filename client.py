@@ -103,6 +103,9 @@ def otc(user, alreadyActive):
       regulatorMenu(user)
     elif role == "doctor":
       doctorMenu(user, role)
+  else:
+    print(r.text)
+    login_menu()
 
 
 def patientMenu(uid):
