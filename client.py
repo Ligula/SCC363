@@ -213,10 +213,11 @@ def regulatorMenu(uid):
     print("Press R to revoke session")
     print("Press F to update password")
     print("Press G to update email")
+    print("Press L to list users")
     print("Press E to logout")
     option = ''
 
-    while option != 'A' and option != 'B' and option != 'C' and option != 'D' and option != 'R' and option != 'F' and option != 'G' and option != 'E':
+    while option != 'A' and option != 'B' and option != 'C' and option != 'L' and option != 'D' and option != 'R' and option != 'F' and option != 'G' and option != 'E':
       option = input("Choice: ")
 
     if option == 'A':
@@ -234,6 +235,22 @@ def regulatorMenu(uid):
         print(json.dumps(json.loads(r.content), indent=4, sort_keys=True))
       else:
         print("Failed to get audit log...")
+
+    elif option == 'L':
+      data = {
+        "session": {
+          "uid": uid
+        }
+      }
+      jsonData = json.dumps(data)
+      headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
+      r = requests.get(fullAddress + '/api/v1/userlist', data=jsonData, headers=headers, verify="cert.pem")
+
+      if r.status_code == 200:
+        print("\nUser list retrieved...")
+        print(json.dumps(json.loads(r.content), indent=4, sort_keys=True))
+      else:
+        print("Failed to get user list...")
 
     elif option == 'B': 
       # Read user

@@ -564,6 +564,38 @@ def del_sessions():
         return "not allowed", 400
     return jsonify({"message": "Invalid request"}), 400
 
+@app.route('/api/v1/userlist', methods=["GET"])
+@login_required
+def get_user_list():
+    """
+        Only regulator has access to this.
+    """
+    data = request.get_json()
+    if "session" in data:
+        user = data["session"]["uid"]
+        mutex.acquire()
+        db.execute('SELECT Role FROM account WHERE Username=?', (user,))
+        role=db.fetchone()[0]
+        mutex.release()
+        
+        # Only allow regulator access.
+        if(role == REGULATOR):
+            auditor.pushEvent("read_user_list", user, request.remote_addr, "Access granted")
+
+            mutex.acquire()
+            db.execute("SELECT Username FROM account")
+            u = db.fetchall()
+            mutex.release()
+            # Put query into list of names.
+            users = []
+            for user in u:
+                users.append(user[0])
+            return jsonify(users), 200
+        auditor.pushEvent("read_user_list", user, request.remote_addr, "Access denied")
+        return "not allowed", 400
+        
+    return jsonify({"message": "Invalid request"}), 400
+
 
 @app.route('/api/v1/audit', methods=["GET"])
 @login_required
