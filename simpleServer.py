@@ -308,7 +308,7 @@ def login_required(f):
     def decorated_function(*args, **kwargs):
         data = request.get_json()
         if data == None:
-            return jsonify({"message": "Invalid request"}), 400
+            return "Invalid request, need session data.", 400
         # Check session exists on both client and server.
         if "session" in data:
             user = data["session"]["uid"]
@@ -316,13 +316,13 @@ def login_required(f):
             if sessionExists(user, request.remote_addr) and sessionValid(user, request.remote_addr):
                 if getSessionStartTime(user, request.remote_addr) + timedelta(seconds=SESSION_TIME) < datetime.now():
                     deleteSession(user, request.remote_addr)
-                    return jsonify({"message" : "Session expired, log back in."})
+                    return "Session expired, log back in", 401
                 return f(*args, **kwargs)
             else:
                 # Ask the user to login.
-                return jsonify({"message": "You need to login to access this resource"}), 401
+                return "You need to login to access this resource", 401
         else:
-            return jsonify({"message": "Invalid request"}), 400
+            return "Invalid request, need session data", 400
     return decorated_function
 
 @app.route('/alive')
@@ -346,7 +346,7 @@ def read_user(uid):
         
         if(userExists(uid)==False):
             auditor.pushEvent("read_user: %s, doesn't exist" % uid, user, request.remote_addr, "")
-            return jsonify({"message": "User doesn't exist"}), 404
+            return "User doesn't exist", 404
         auditor.pushEvent("read_user: %s" % uid, user, request.remote_addr, "")
 
         role = getRole(user)
@@ -393,14 +393,14 @@ def read_user(uid):
                 if user == staff[0]:
                     return jsonify(response), 200
                 else:
-                    return jsonify({"message": "Not your patient"}), 400
+                    return "Not your patient", 400
             else:
                 return jsonify(response), 200
         
         auditor.pushEvent("read_user: %s" % uid, user, request.remote_addr, "Operation denied, invalid role %s" % role)
-        return jsonify({"message": "You cannot do this operation"}), 400
+        return "You cannot do this operation", 400
         
-    return jsonify({"message": "Invalid request"}), 400
+    return "Invalid request, need session data.", 400
 
 @app.route('/api/v1/user/<uid>', methods=["POST"])
 @login_required
@@ -442,7 +442,7 @@ def update_user(uid):
                     updatePassword(uid,data["newPassword"])
                     
             auditor.pushEvent("update_user", user, request.remote_addr, "Updated account details: %s" % uid)
-            return jsonify({"message": "Personal details updated"}), 200
+            return "Personal details updated", 200
         else:
             mutex.acquire()
             db.execute('SELECT Role FROM account WHERE Username=?', (uid,))
@@ -467,12 +467,12 @@ def update_user(uid):
                     db.execute('UPDATE patient SET ? WHERE PatientUsername=?', (updateString,uid))
                     conn.commit()
                     auditor.pushEvent("update_user: ", user, request.remote_addr, "Updated account details: %s" % uid)
-                    return jsonify({"message": uid+" details updated"}), 200
+                    return uid+" details updated", 200
             
             auditor.pushEvent("update_user", user, request.remote_addr, "Access denied to change: %s" % uid)
-            return jsonify({"message": "You cannot change this persons details"}), 400
+            return "You cannot change this person's details", 400
         
-    return jsonify({"message": "Invalid request"}), 400
+    return "Invalid request", 400
 
 @app.route('/api/v1/user/<uid>', methods=["DELETE"])
 @login_required
@@ -498,7 +498,7 @@ def delete_user(uid):
             count = db.fetchone()
             if count[0] != 0:
                 mutex.release()
-                return jsonify({"message": "Can't delete account until all patients reallocated"}), 400
+                return "Can't delete account until all patients reallocated", 400
             mutex.release()
             
             db.execute('DELETE FROM staff WHERE StaffUsername=?', (uid,))
@@ -508,13 +508,13 @@ def delete_user(uid):
             db.execute('DELETE FROM account WHERE Username=?', (uid,))
             conn.commit()
             auditor.pushEvent("delete_user: %s" % uid, user, request.remote_addr, "")
-            return jsonify({"message": "Your account has been removed."}), 200
+            return "Your account has been removed", 200
         else:
             auditor.pushEvent("delete_user: %s" % uid, user, request.remote_addr, "Tried to delete another persons account")
-            return jsonify({"message": "You cannot delete someone else"}), 400
+            return "You cannot delete someone else's account", 400
         
         
-    return jsonify({"message": "Invalid request"}), 400
+    return "Invalid request, need session data", 400
 
 @app.route('/api/v1/sessions', methods=["GET"])
 @login_required
@@ -535,9 +535,9 @@ def get_sessions():
             auditor.pushEvent("get_sessions", user, request.remote_addr, "Access granted")
             return jsonify(listSessions()), 200
         auditor.pushEvent("get_sessions", user, request.remote_addr, "Access denied")
-        return "not allowed", 400
+        return "You don't have access to this resource", 400
         
-    return jsonify({"message": "Invalid request"}), 400
+    return "Invalid request, need session data", 400
 
 @app.route('/api/v1/sessions', methods=["DELETE"])
 @login_required
@@ -561,8 +561,8 @@ def del_sessions():
             else:
                 return "No session exists", 404
         auditor.pushEvent("delete_session", user, request.remote_addr, "Access denied")
-        return "not allowed", 400
-    return jsonify({"message": "Invalid request"}), 400
+        return "You cannot access this resource", 400
+    return "Invalid request, need session data", 400
 
 @app.route('/api/v1/userlist', methods=["GET"])
 @login_required
@@ -592,9 +592,9 @@ def get_user_list():
                 users.append(user[0])
             return jsonify(users), 200
         auditor.pushEvent("read_user_list", user, request.remote_addr, "Access denied")
-        return "not allowed", 400
+        return "You are not allowed to access this resource", 400
         
-    return jsonify({"message": "Invalid request"}), 400
+    return "Invalid request, need session data", 400
 
 
 @app.route('/api/v1/audit', methods=["GET"])
@@ -616,9 +616,9 @@ def get_audits():
             auditor.pushEvent("read_audit", user, request.remote_addr, "Access granted")
             return jsonify(auditor.readLogs()), 200
         auditor.pushEvent("read_audit", user, request.remote_addr, "Access denied")
-        return "not allowed", 400
+        return "You are not alloed to access this resource", 400
         
-    return jsonify({"message": "Invalid request"}), 400
+    return "Invalid request, need session data", 400
 
 @app.route('/api/v1/logout', methods=["GET"])
 @login_required
@@ -626,10 +626,10 @@ def logout_handler():
     data = request.get_json()
     if deleteSession(data["session"]["uid"], request.remote_addr):
         auditor.pushEvent("logout", data["session"]["uid"], request.remote_addr, "")
-        return jsonify({"message": "You've been logged out"}), 200
+        return "You've been logged out", 200
     else:
         auditor.pushEvent("logout", data["session"]["uid"], request.remote_addr, "No session")
-        return jsonify({"message": "No session to logout of."}), 200
+        return "No session to log out of.", 200
 
 @app.route('/api/v1/login', methods=['POST'])
 def login_handler():
@@ -637,16 +637,15 @@ def login_handler():
     uname = data["username"]
     pwd = data["password"]
 
-
     if not loginLimiter.canPass(request.remote_addr):
         auditor.pushEvent("login", uname, request.remote_addr, "Too many login attempts")
-        return jsonify({"message" : "Too many requests"}), 429
+        return "Too many requests, wait before sending more.", 429
 
     
     if userExists(uname) == False:
         
         auditor.pushEvent("login", uname, request.remote_addr, "Account not found")
-        return Response("{'message' : 'User doesn't exists'}", status=404)
+        return "User doesn't exists", 404
     else:
         # TODO: check password expiry date.
         if verify_password(pwd, getHash(uname), uname):
@@ -659,8 +658,7 @@ def login_handler():
             
             if sessionExists(uname, request.remote_addr):
                     auditor.pushEvent("login", uname, request.remote_addr, "Session already active")
-                    return jsonify({'message': 'Account already logged in.'}), 302 #session already verified
-            # TODO: Need some session data to send back to the user.
+                    return "Account already logged in", 302 #session already verified
             code = random.randrange(1, 10**6)
             code_str = '{:06}'.format(code)
             # Code from 0000-9999, send to user's email.
@@ -669,10 +667,10 @@ def login_handler():
             SendEmail(getEmail(uname), 'SCC-363 OTC', 'Login OTC: ' + code_str)
             auditor.pushEvent("login", uname, request.remote_addr, "Sent OTC")
             
-            return Response("{'message': 'Login Success!'}", status=200)
+            return "Login success!", 200
     
     auditor.pushEvent("login", uname, request.remote_addr, "Invalid password")
-    return Response("{'message': 'Password Incorrect'}", status=400)
+    return "Password incorrect", 400
 
 @app.route('/api/v1/otc', methods=['POST'])
 def otc_handler():
@@ -702,20 +700,19 @@ def otc_handler():
             return jsonify(resp), 200
         else:
             auditor.pushEvent("otc", user, request.remote_addr, "Incorrect OTC")
-            return Response("{'message': 'OTC incorrect!'}", status=400)
+            return "OTC incorrect", 400
     else:
         auditor.pushEvent("login", user, request.remote_addr, "No session for OTC")
-        return Response("{'message': 'Invalid session'}", status=400)
-    return Response("{'message': 'Shouldn't get to here. Internal failure.'}", status=500)
+        return "Invalid session", 400
 
 @app.route('/api/v1/verify', methods=['GET'])
 def verify_handler():
     vid = request.args.get('verifyId')
     if verifyAccount(vid) == True:
         auditor.pushEvent("verify", vid, request.remote_addr, "")
-        return Response("{'message': 'Your account has been verified, you can now login.'}")
+        return "Your account has been verified, you may now login"
     auditor.pushEvent("verify", vid, request.remote_addr, "Unknown verify id")
-    return Response("{'message': 'Unknown verify id.'}"), 404
+    return "Unknown verify id!", 404
 
 @app.route('/api/v1/register', methods=['POST'])
 def register_handler():
@@ -728,20 +725,20 @@ def register_handler():
 
     if not registerLimiter.canPass(request.remote_addr):
         auditor.pushEvent("register", uname, request.remote_addr, "Too many register events")
-        return jsonify({"message" : "Too many requests"}), 429
+        return "Too many requests, wait before sending more", 429
 
     [pwdhash, salt] = create_password(pwd)
 
     if userExists(uname):
         auditor.pushEvent("register", uname, request.remote_addr, "Name taken")
-        return Response("{'message':'username taken'}", status=400)
+        return "Username taken, try something different.", 400
     else:
         vid = generate_random_id()
         # Send link to verify account.
         # 30 day password expiry
         if createUser(uname, pwdhash, salt, email, role, time.time() + PASSWORD_EXPIRE_TIME, vid) == False:
             auditor.pushEvent("register", uname, request.remote_addr, "Name taken")
-            return Response("{'message': 'Account name taken!'}", status=200)
+            return "Account name taken, try another one", 400
         # Create entry for patients and doctors.
         if role == PATIENT:
             createPatient(datetime.strptime(dob, '%d/%m/%Y').date(), data["conditions"], uname, None)
@@ -751,7 +748,7 @@ def register_handler():
         verify_url = "https://localhost:5000" + url_for('verify_handler')+"?verifyId=" + vid
         SendEmail(email, 'SCC-363 Registration', ('Hi %s, welcome to the system! \n Please verify your email at: %s' % (uname, verify_url)))
         auditor.pushEvent("register", uname, request.remote_addr, "")
-    return Response("User successfully registered, goto your emails to verify your account.", status=200)
+    return "User successfully registered, goto your emails to verify your account.", 200
 
 
 # This account doesn't actually exist yet.
