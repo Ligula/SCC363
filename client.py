@@ -133,7 +133,7 @@ def patientMenu(uid):
       headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
       r = requests.get(fullAddress + '/api/v1/user/' + uid, data=jsonData, headers=headers, verify="cert.pem")
       print(r.status_code)
-      print(r.content)
+      print(json.dumps(json.loads(r.content), indent=4, sort_keys=True))
 
     elif option == 'B':
       oldpwd = input("\nCurrent Password:")
