@@ -208,7 +208,6 @@ def regulatorMenu(uid):
     # TODO: need to allow them to change password / email. Same as patient code.
     print("\nPress A to access audit logs")
     print("Press B to access user data")
-    print("Press C to assign Doctors to patients")
     print("Press D to view active sessions")
     print("Press R to revoke session")
     print("Press F to update password")
@@ -217,7 +216,7 @@ def regulatorMenu(uid):
     print("Press E to logout")
     option = ''
 
-    while option != 'A' and option != 'B' and option != 'C' and option != 'L' and option != 'D' and option != 'R' and option != 'F' and option != 'G' and option != 'E':
+    while option != 'A' and option != 'B' and option != 'L' and option != 'D' and option != 'R' and option != 'F' and option != 'G' and option != 'E':
       option = input("Choice: ")
 
     if option == 'A':
@@ -271,24 +270,6 @@ def regulatorMenu(uid):
         print("User not found...")
       else:
         print("Invalid operation")
-
-    elif option == 'C':
-      print("\nAssign doctor to patients")
-
-      patient = input("Patient: ")
-      doctor = input("Doctor: ")
-
-      data = {
-        "session": {
-          "uid": uid
-        },
-        "doctor": doctor,
-        "patient": patient
-      }
-      jsonData = json.dumps(data)
-      headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
-      r = requests.post(fullAddress + '/api/v1/assign', data=jsonData, headers=headers, verify="cert.pem")
-      print(r.content)
     elif option == 'D': # Active sessions
       print("\nFetching active sessions...")
       data = {
@@ -381,15 +362,16 @@ def regulatorMenu(uid):
 def doctorMenu(uid, role):
   option = ''
 
-  while option != 'E':
+  while option != 'F':
     print("\nPress A to search for a patient")
     print("Press B to update patient condition")
     print("Press C to update email")
     print("Press D to update password")
-    print("Press E to logout")
+    print("Press E to assign patient to doctor")
+    print("Press F to logout")
     
     option = input("Choice: ")
-    while option != 'A' and option != 'B' and option != 'C' and option != 'D' and option != 'E':
+    while option != 'A' and option != 'B' and option != 'C' and option != 'D' and option != 'E' and option != 'F':
       option = input("Choice: ")
 
     if option == 'A':
@@ -446,6 +428,24 @@ def doctorMenu(uid, role):
         print("Email updated successfully")
         print(r.content)
 
+    if option == 'E':
+      print("\nAssign doctor to patients")
+
+      patient = input("Patient: ")
+      doctor = input("Doctor: ")
+
+      data = {
+        "session": {
+          "uid": uid
+        },
+        "doctor": doctor,
+        "patient": patient
+      }
+      jsonData = json.dumps(data)
+      headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
+      r = requests.post(fullAddress + '/api/v1/assign', data=jsonData, headers=headers, verify="cert.pem")
+      print(r.content)
+
     if option == 'D':      
       oldpwd = input("\nCurrent Password:")
       newpwd = input("New Password: ")
@@ -468,7 +468,7 @@ def doctorMenu(uid, role):
         if r.status_code == 200:
           print("Password updated successfully")
     
-    if option == 'E':
+    if option == 'F':
       data = {
           "session": {
             "uid": uid

@@ -582,8 +582,8 @@ def assign_patient():
         patient = data["patient"]
         doctor = data["doctor"]
         
-        # Only allow regulator access.
-        if(role == REGULATOR):
+        # Only allow doctor access.
+        if(role == DOCTOR):
             auditor.pushEvent("assign_patient", user, request.remote_addr, "Access granted")
             if userExists(patient) == False:
                 return "Patient not found", 404
