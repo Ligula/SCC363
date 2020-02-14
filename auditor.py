@@ -40,8 +40,12 @@ class Auditor:
         eventTime = datetime.now()
         self.mutex.acquire()
         entry = AuditEntry(eventTime, operation, userId, ipAddr, reason)
+        entryHash = hash(entry)
+        print(entry)
+        print(entryHash)
         self.handle.seek(0, os.SEEK_END)
         pickle.dump(entry, self.handle)
+        #pickle.dump(entryHash, self.handle)
         # Ensure log is pushed to disk properly, not buffered.
         self.handle.flush()
         os.fsync(self.handle)
