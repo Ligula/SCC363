@@ -1,6 +1,6 @@
 from datetime import datetime
 import os, stat
-import pickle
+import pickle, jsonpickle
 from threading import Lock
 
 class AuditEntry(object):
@@ -18,6 +18,9 @@ class AuditEntry(object):
         entry["uid"] = self.userId
         entry["remote_ip"] = self.ipAddr
         entry["reason"] = self.reason
+        serialized_dct = jsonpickle.encode(entry)
+        check_sum = hash(serialized_dct)
+        entry["checksum"] = check_sum
         return entry
 
 class Auditor:
@@ -40,12 +43,12 @@ class Auditor:
         eventTime = datetime.now()
         self.mutex.acquire()
         entry = AuditEntry(eventTime, operation, userId, ipAddr, reason)
-        entryHash = hash(entry)
-        print(entry)
-        print(entryHash)
         self.handle.seek(0, os.SEEK_END)
+
+        #Append Log & hash
         pickle.dump(entry, self.handle)
-        pickle.dump(entryHash, self.handle)
+        #pickle.dump(entryHash, self.handle)
+
         # Ensure log is pushed to disk properly, not buffered.
         self.handle.flush()
         os.fsync(self.handle)

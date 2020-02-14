@@ -97,11 +97,4 @@ def pass_eval_nousr(passw):
     
     print(Fore.WHITE + "")
 
-# #user = input("\nEnter User: ")    
-# passw = input("\nEnter password: ")
-# #dob = input("\nEnter DOB e.g. DD/MM/YYYY: ")
-
-# while pass_eval(passw, user, dob) != True:
-#     passw = input("\nEnter password: ")
-
     
